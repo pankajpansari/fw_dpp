@@ -49,64 +49,9 @@ def get_fw_optimum(filename, N):
 
     return x_good
 
-def read_graph(graph_file, N):
-
-    f = open(graph_file, 'rU')
-
-    G = nx.DiGraph()
-
-    for line in f:
-        if line.find('Nodes') != -1:
-            N = int(line.split(' ')[2])
-            G.add_nodes_from(range(N))
-            break
-
-    for _ in range(1):
-        next(f)
-
-    for line in f:
-        from_id = int(line.split()[0])
-        to_id = int(line.split()[1])
-        G.add_edge(from_id, to_id)
-    
-    return G
-
-def read_email_graph(graph_file, N):
-
-    f = open(graph_file, 'rU')
-    assert(N == 1005)
-
-    G = nx.DiGraph()
-    G.add_nodes_from(range(N))
-
-    for line in f:
-        from_id = int(line.split()[0])
-        to_id = int(line.split()[1])
-        G.add_edge(from_id, to_id)
-    
-    return G
-
-def read_facebook_graph(graph_file, N):
-
-    f = open(graph_file, 'rU')
-    assert(N == 4039) 
-
-    G = nx.DiGraph()
-    G.add_nodes_from(range(N))
-
-    for line in f:
-        id1 = int(line.split()[0])
-        id2 = int(line.split()[1])
-        G.add_edge(id1, id2)
-        G.add_edge(id2, id1)
-    
-    return G
+def read_dpp(dpp_file, N, dpp_id):
 
 if __name__ == '__main__':
-#    N = 1005
-#    G = read_email_graph('/home/pankaj/Sampling/data/input/social_graphs/email_eu/email-Eu-core.txt', N)
-#    print G.number_of_edges()
-#
     N = 4039 
     G = read_facebook_graph('/home/pankaj/Sampling/data/input/social_graphs/facebook/facebook_combined.txt', N)
     print G.number_of_edges()
