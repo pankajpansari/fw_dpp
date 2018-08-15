@@ -2,9 +2,7 @@ import sys
 import numpy as np
 import math
 import torch
-from influence import ic_model as submodObj
 from torch.autograd import Variable
-from frank_wolfe import runFrankWolfe
 from frank_wolfe_importance import runImportanceFrankWolfe
 from read_files import read_dpp
 #from variance import convex_var
@@ -15,7 +13,7 @@ np.random.seed(1234)
 
 def call_FrankWolfe(N, dpp_id, k, nsamples_mlr, num_fw_iter,  if_herd, if_sfo_gt, a, torch_seed):
 
-    dpp_file = "/home/pankaj/Sampling/data/input/dpp/data/dpp_100_0.5_0.5_200_0_0.1_5.h5" 
+    dpp_file = "/home/pankaj/Sampling/data/input/dpp/data/dpp_100_1.5_0.5_200_0_0.1_5.h5" 
 
     L = read_dpp(dpp_file, N, '/dpp_' + str(dpp_id)) 
 
@@ -32,6 +30,10 @@ def call_FrankWolfe(N, dpp_id, k, nsamples_mlr, num_fw_iter,  if_herd, if_sfo_gt
     temp = dirw + '/iterates_N_' + str(N) + '_' + str(dpp_id) 
 
     iterates_file = '_'.join(str(x) for x in [temp, k, nsamples_mlr, num_fw_iter, if_herd, if_sfo_gt, 0, torch_seed]) + '.txt'
+
+    #No convex combination for now
+    x_good = torch.Tensor([0]*N)
+    a = 0
 
     x_opt = runImportanceFrankWolfe(L, nsamples_mlr, k, log_file, opt_file, iterates_file, num_fw_iter, if_herd, x_good, a)
 

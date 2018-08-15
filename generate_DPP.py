@@ -6,7 +6,7 @@ def main():
     n_dpp = 5
     N = 100 #number of items
     #Quality parameters
-    mu_q = 0.5
+    mu_q = 1.5 
     sigma_q = 0.5 
 
     #Feature parameters
