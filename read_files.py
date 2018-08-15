@@ -1,6 +1,8 @@
 import networkx as nx
 import sys
 import torch
+import h5py
+import numpy as np
 from torch.autograd import Variable
 
 def read_iterates(filename, N, num_iterates):
@@ -50,8 +52,15 @@ def get_fw_optimum(filename, N):
     return x_good
 
 def read_dpp(dpp_file, N, dpp_id):
+    with h5py.File(dpp_file, 'r') as hf:
+        L = hf.get(dpp_id)
+        L = torch.Tensor(L)
+        hf.close()
+        assert(L.shape == (N, N))
+        return L
+
 
 if __name__ == '__main__':
-    N = 4039 
-    G = read_facebook_graph('/home/pankaj/Sampling/data/input/social_graphs/facebook/facebook_combined.txt', N)
-    print G.number_of_edges()
+    N = 100 
+    L = read_dpp("/home/pankaj/Sampling/data/input/dpp/data/dpp_100_0.5_0.5_200_0_0.1_5.h5", N, '/dpp_0')
+    print L.shape 
