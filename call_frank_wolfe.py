@@ -11,11 +11,7 @@ import subprocess
 import argparse
 np.random.seed(1234)
 
-def call_FrankWolfe(N, dpp_id, k, nsamples_mlr, num_fw_iter,  if_herd, if_sfo_gt, a, torch_seed):
-
-    dpp_file = "/home/pankaj/Sampling/data/input/dpp/data/dpp_100_1.5_0.5_200_0_0.1_5.h5" 
-
-    L = read_dpp(dpp_file, N, '/dpp_' + str(dpp_id)) 
+def call_FrankWolfe(N, L, dpp_id, k, nsamples_mlr, num_fw_iter,  if_herd, if_sfo_gt, a, torch_seed):
 
     dirw = './workspace'
 
@@ -66,7 +62,11 @@ def main():
 
     torch.manual_seed(torch_seed) 
 
-    call_FrankWolfe(N, dpp_id, k, nsamples_mlr, num_fw_iter, if_herd, if_sfo_gt, a, torch_seed)
+    dpp_file = "/home/pankaj/Sampling/data/input/dpp/data/dpp_100_0.5_0.5_200_0_0.1_5.h5" 
+
+    L = read_dpp(dpp_file, N, '/dpp_' + str(dpp_id)) 
+
+    call_FrankWolfe(N, L, dpp_id, k, nsamples_mlr, num_fw_iter, if_herd, if_sfo_gt, a, torch_seed)
 
     print "Compeleted in " + str(time.clock() - tic) + 's'
 
