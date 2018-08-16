@@ -65,7 +65,9 @@ def getCondGrad(grad, k):
     N = grad.shape[0]
     top_k = Variable(torch.zeros(N)) #conditional grad
     sorted_ind = torch.sort(grad, descending = True)[1][0:k]
+    neg_ind = grad < 0
     top_k[sorted_ind] = 1
+    top_k[neg_ind] = 0
     return top_k
 
 
@@ -156,8 +158,11 @@ def runImportanceFrankWolfe(L, nsamples, k, log_file, opt_file, iterates_file, n
     #Round the optimum solution and get function values
     top_k = Variable(torch.zeros(N)) #conditional grad
     sorted_ind = torch.sort(x_opt, descending = True)[1][0:k]
+    neg_ind = x_opt <= 1e-2 
     top_k[sorted_ind] = 1
+    top_k[neg_ind] = 0
     gt_val = submodObj(L, top_k)
+    print "Rounded discrete solution = ", gt_val.item()
 
     #Save optimum solution and value
     f = open(opt_file, 'w')
@@ -172,6 +177,6 @@ def runImportanceFrankWolfe(L, nsamples, k, log_file, opt_file, iterates_file, n
 
 if __name__ == '__main__':
 
-    x = torch.rand(3)
-    samples_list = Variable(torch.bernoulli(x.repeat(2, 1)))    
-    print getLogProb(samples_list, x)
+    grad = torch.randn(5)
+    print grad
+    print getCondGrad(grad, 3)
