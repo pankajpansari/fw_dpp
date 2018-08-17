@@ -5,6 +5,7 @@ import torch
 from dpp_objective import getDet as submodObj
 from dpp_objective import DPP 
 from torch.autograd import Variable
+from read_files import read_dpp
 #from __future__ import print_function
 import logger
 from builtins import range
@@ -40,7 +41,7 @@ def getImportanceWeights(samples_list, nominal, proposal):
     logp_prp = getLogProb(samples_list, proposal)
     return torch.exp(logp_nom - logp_prp)
 
-def getImportanceRelax(L, x_good, x, nsamples, dpp_obj, herd, a): 
+def getImportanceRelax(x_good, x, nsamples, dpp_obj, herd, a): 
 
     current_sum = Variable(torch.FloatTensor([0]), requires_grad = False) 
 
@@ -71,13 +72,12 @@ def getCondGrad(grad, k):
     return top_k
 
 
-def getImportanceGrad(L, x_good, x, nsamples, dpp_obj, herd, a):
+def getImportanceGrad(x_good, x, nsamples, dpp_obj, herd, a):
 
     #Returns the gradient vector of the multilinear relaxation at x as given in Chekuri's paper
     #(See Theorem 1 in nips2012 paper)
 
-    N = L.shape[0]
-    grad = Variable(torch.zeros(N))
+    grad = Variable(torch.zeros(dpp_obj.N))
 
     x_prp = (1 - a)*x + a*x_good
 
@@ -91,12 +91,29 @@ def getImportanceGrad(L, x_good, x, nsamples, dpp_obj, herd, a):
     for t in range(nsamples):
         sample = samples_list[t] 
         m = torch.zeros(sample.size()) 
-        for p in np.arange(N):
+        for p in np.arange(dpp_obj.N):
             m[p] = 1
-            grad[p] = grad[p] + w[t]*(dpp_obj(np.logical_or(sample.numpy(), m.numpy())) - dpp_obj(np.logical_and(sample.numpy(), np.logical_not(m.numpy()))))
+            grad[p] = grad[p] + (w[t]/w.sum())*(dpp_obj(np.logical_or(sample.numpy(), m.numpy())) - dpp_obj(np.logical_and(sample.numpy(), np.logical_not(m.numpy()))))
             m[p] = 0
 
-    return grad*1.0/nsamples
+    return grad
+
+def prune(dpp_obj, I):
+    #We go through items in I in the order 1...N, and keep items with +ve marginal gain
+
+    items_I = torch.LongTensor([x for x in range(len(I)) if I[x] == 1] )
+    sorted_I_items = torch.sort(items_I)[0] #asceding order
+    current_set = torch.Tensor([0]*dpp_obj.N)
+    for item in sorted_I_items:
+        include_sample = current_set.clone()
+        include_sample[item] = 1
+        marginal_gain = dpp_obj(include_sample.numpy()) - dpp_obj(current_set.numpy()) 
+        if marginal_gain > 0:
+            current_set[item] = 1
+            print "Including item ", item, "    gain = ", marginal_gain
+        else:
+            print "Not including item ", item, "    gain = ", marginal_gain
+    return current_set
 
 def runImportanceFrankWolfe(L, nsamples, k, log_file, opt_file, iterates_file, num_fw_iter, if_herd, x_good, a):
 
@@ -114,7 +131,7 @@ def runImportanceFrankWolfe(L, nsamples, k, log_file, opt_file, iterates_file, n
     tic = time.clock()
 
     iter_num = 0
-    obj = getImportanceRelax(L, x_good, x, nsamples, dpp_obj, if_herd, a)
+    obj = getImportanceRelax(x_good, x, nsamples, dpp_obj, if_herd, a)
     toc = time.clock()
 
     print "Iteration: ", iter_num, "    obj = ", obj.item(), "  time = ", (toc - tic),  "   Total/New/Cache: ", dpp_obj.itr_total , dpp_obj.itr_new , dpp_obj.itr_cache
@@ -129,7 +146,7 @@ def runImportanceFrankWolfe(L, nsamples, k, log_file, opt_file, iterates_file, n
 
         dpp_obj.counter_reset()
 
-        grad = getImportanceGrad(L, x_good, x,nsamples, dpp_obj, if_herd, a)
+        grad = getImportanceGrad(x_good, x,nsamples, dpp_obj, if_herd, a)
 
         x_star = getCondGrad(grad, k)
 
@@ -137,14 +154,13 @@ def runImportanceFrankWolfe(L, nsamples, k, log_file, opt_file, iterates_file, n
 
         x = step*x_star + (1 - step)*x
 
-        obj = getImportanceRelax(L, x_good, x, nsamples, dpp_obj, if_herd, a)
+        obj = getImportanceRelax(x_good, x, nsamples, dpp_obj, if_herd, a)
         
         toc = time.clock()
 
         print "Iteration: ", iter_num, "    obj = ", obj.item(), "  time = ", (toc - tic),  "   Total/New/Cache: ", dpp_obj.itr_total , dpp_obj.itr_new , dpp_obj.itr_cache
 
         f.write(str(toc - tic) + " " + str(obj.item()) + " " + str(dpp_obj.itr_total) + '/' + str(dpp_obj.itr_new) + '/' + str(dpp_obj.itr_cache) + "\n") 
-
 
         for x_t in x:
             f2.write(str(x_t.item()) + '\n')
@@ -156,13 +172,19 @@ def runImportanceFrankWolfe(L, nsamples, k, log_file, opt_file, iterates_file, n
     x_opt = x
 
     #Round the optimum solution and get function values
-    top_k = Variable(torch.zeros(N)) #conditional grad
+    #Follow the contention rounding scheme for knapsack from section 4.5 of the Chekuri et al (2014) paper
+
+    I = Variable(torch.zeros(N)) #independent set (satisfying the cardinality constraint here)
     sorted_ind = torch.sort(x_opt, descending = True)[1][0:k]
-    neg_ind = x_opt <= 1e-2 
-    top_k[sorted_ind] = 1
-    top_k[neg_ind] = 0
-    gt_val = submodObj(L, top_k)
-    print "Rounded discrete solution = ", gt_val.item()
+    I[sorted_ind] = 1
+
+    #Since DPPs are non-monotone, we need to prune the independent set
+    S = prune(dpp_obj, I)
+
+    opt_submod_val = dpp_obj(S.numpy()) 
+
+    print "Rounded discrete solution with pruning= ", opt_submod_val.item()
+    print "(Rounded discrete solution without pruning = ", dpp_obj(I.numpy()).item()
 
     #Save optimum solution and value
     f = open(opt_file, 'w')
@@ -176,7 +198,9 @@ def runImportanceFrankWolfe(L, nsamples, k, log_file, opt_file, iterates_file, n
     return x_opt
 
 if __name__ == '__main__':
-
-    grad = torch.randn(5)
-    print grad
-    print getCondGrad(grad, 3)
+    x = torch.Tensor([0.2]*100) 
+    I = torch.bernoulli(x)
+    N = 100 
+    L = read_dpp("/home/pankaj/Sampling/data/input/dpp/data/" + sys.argv[1], N, '/dpp_0')
+    dpp_obj = DPP(L)
+    prune(dpp_obj, I)

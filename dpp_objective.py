@@ -18,6 +18,7 @@ class DPP(object):
         self.cache = {}
         self.cache_hits = 0
         self.L = L
+        self.N = L.shape[0]
         self.itr_total = 0
         self.itr_new = 0
         self.itr_cache = 0
@@ -56,7 +57,6 @@ def getDet(L, sample):
 
     subRowsMatrix = L.index_select(0, this_set)
     subMat = subRowsMatrix.index_select(1, this_set)
-
     temp = subMat.data.numpy()
     detVal = np.linalg.det(temp)
     temp = np.array([detVal])

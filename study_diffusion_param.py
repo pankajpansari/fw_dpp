@@ -9,28 +9,23 @@ import math
 import itertools as it
 import matplotlib.pyplot as plt
 from torch.autograd import Variable
-from influence import ic_model
-from influence import Influence 
-from frank_wolfe import runFrankWolfe
-from frank_wolfe import getRelax
-from read_files import read_facebook_graph, read_email_graph
+from dpp_objective import getDet
+from read_files import read_dpp 
 import subprocess
 
 random.seed(1234)
 
-dirw = "/home/pankaj/Sampling/data/working/12_08_2018/"
-
-def select_random_k_pair(G, k, nNodes, nRandom, p, num_influ_iter):
+def select_random_k_pair(L, k, nItems, nRandom):
 
     val_list = []
     for t in range(nRandom):
 
-        nodes = range(nNodes)
-        sample = torch.zeros(nNodes)
-        k_pair = np.random.choice(nodes, size = k, replace = False)
+        items = range(nItems)
+        sample = torch.zeros(nItems)
+        k_pair = np.random.choice(items, size = k, replace = False)
         sample[k_pair] = 1
 
-        temp = ic_model(G, sample, p, num_influ_iter).item()
+        temp = getDet(L, sample).item()
         val_list.append(temp)
     return np.max(val_list)
 
@@ -417,12 +412,6 @@ def main():
     f.close()
 
 if __name__ == '__main__':
-    exp_name = sys.argv[1]
-    subprocess.call(['./aux/create_workspace.sh', exp_name])
-    x = int(sys.argv[3])
-    if x == 0:
-        influence_variance_study_parallel_facebook()
-    else:
-        influence_variance_study_parallel_email()
-#    p_study_facebook()
-#    p_study_email()
+    N = 100 
+    L = read_dpp("/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_100_2_200_5_10_5.h5", N, '/dpp_1')
+    print select_random_k_pair(L, 10, N, 50)

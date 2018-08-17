@@ -47,6 +47,7 @@ def main():
     parser.add_argument('if_sfo_gt', help='True if greedy ground-truth to be used during importance sampling', type=int)
     parser.add_argument('a', help='Convex combination coefficient', type=float)
     parser.add_argument('torch_seed', help='Torch random seed', type=int)
+    parser.add_argument('dpp_file', help='DPP file', type=str)
 
     args = parser.parse_args()
     
@@ -62,7 +63,7 @@ def main():
 
     torch.manual_seed(torch_seed) 
 
-    dpp_file = "/home/pankaj/Sampling/data/input/dpp/data/dpp_100_0.5_0.5_200_0_0.1_5.h5" 
+    dpp_file = "/home/pankaj/Sampling/data/input/dpp/data/" + args.dpp_file
 
     L = read_dpp(dpp_file, N, '/dpp_' + str(dpp_id)) 
 
