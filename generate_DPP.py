@@ -5,22 +5,23 @@ import h5py
 def clustered_DPP():
     #Quality same for all items
     #Feature vectors such that the items are grouped in k categories
-    k = 20 
+    k = 10 
     n_dpp = 5
     N = 100 #number of items
 
     #Quality parameters
-    mu_q = 2
+    mu_q = 2 
+    sigma_q = 1
 
     #Feature parameters
     D = 2*N #number of features
-    mu_phi = 1 
-    sigma_phi = 2
+    mu_phi = 2 
+    sigma_phi = 1 
     
     params_string = '_'.join(str(x) for x in [N, mu_q, D, mu_phi, sigma_phi, n_dpp, k])
     hf = h5py.File('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_' + params_string + '.h5', 'w')
 
-    for p in range(5):
+    for p in range(n_dpp):
         q = np.array([mu_q]*N)
         
         phi = np.zeros((D, N))
@@ -28,7 +29,7 @@ def clustered_DPP():
 
         for i in range(N):
             category = np.random.randint(0, k) #pick a category at random
-            phi_i = phi_k[:, category] + 0.01*np.random.randn(D) #add small noise to the category feature vector
+            phi_i = phi_k[:, category] + (sigma_phi/1.0)*np.random.randn(D) #add small noise to the category feature vector
 
             phi[:, i] = phi_i 
 
@@ -55,21 +56,23 @@ def clustered_DPP():
 def random_DPP():
     n_dpp = 5
     N = 100 #number of items
+    D = N/2 #number of features
+
     #Quality parameters
     mu_q = 0.5 
     sigma_q = 0.5 
 
     #Feature parameters
-    D = 2*N #number of features
     mu_phi = 0 
     sigma_phi = 0.1
     
-    params_string = '_'.join(str(x) for x in [N, mu_q, sigma_q, D, mu_phi, sigma_phi, n_dpp])
+    params_string = '_'.join(str(x) for x in [N, D, n_dpp, mu_q, sigma_q, mu_phi, sigma_phi])
+
     hf = h5py.File('/home/pankaj/Sampling/data/input/dpp/data/dpp_' + params_string + '.h5', 'w')
 
-    for p in range(5):
+    for p in range(n_dpp):
         q = np.random.normal(mu_q, sigma_q, N)
-        phi = np.random.randn(D, N)
+        phi = np.random.normal(mu_phi, sigma_phi, (D, N))
 
         normalise_factors = np.sum(phi, 0)
         phi_n = np.zeros((D, N))
@@ -89,5 +92,13 @@ def random_DPP():
 
     hf.close()
 
+def param_search():
+    mu_q = [0.1, 0.5, 1, 2, 5]
+    sigma_q = [0.1, 0.5, 1, 2]
+
+    mu_phi = [0.1, 0.5, 1, 2, 5]
+    sigma_phi = [0.1, 0.5, 1, 2]
+
 if __name__ == '__main__':
     clustered_DPP()
+#    random_DPP()

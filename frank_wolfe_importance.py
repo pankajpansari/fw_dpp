@@ -110,9 +110,11 @@ def prune(dpp_obj, I):
         marginal_gain = dpp_obj(include_sample.numpy()) - dpp_obj(current_set.numpy()) 
         if marginal_gain > 0:
             current_set[item] = 1
-            print "Including item ", item, "    gain = ", marginal_gain
-        else:
-            print "Not including item ", item, "    gain = ", marginal_gain
+#            print "Including item ", item, "    gain = ", marginal_gain
+#        else:
+#            print "Not including item ", item, "    gain = ", marginal_gain
+    temp = [x for x in range(1, dpp_obj.N) if current_set[x] == 1]
+    print "Items in pruned set = ", len(temp)
     return current_set
 
 def runImportanceFrankWolfe(L, nsamples, k, log_file, opt_file, iterates_file, num_fw_iter, if_herd, x_good, a):
@@ -121,7 +123,8 @@ def runImportanceFrankWolfe(L, nsamples, k, log_file, opt_file, iterates_file, n
 
     dpp_obj = DPP(L)
 
-    x = Variable(torch.Tensor([1.0*k/N]*N))
+#    x = Variable(torch.Tensor([1.0*k/N]*N))
+    x = Variable(torch.Tensor([1e-3]*N))
 
     bufsize = 0
 
@@ -189,7 +192,7 @@ def runImportanceFrankWolfe(L, nsamples, k, log_file, opt_file, iterates_file, n
     #Save optimum solution and value
     f = open(opt_file, 'w')
 
-    f.write(str(gt_val.item()) + '\n')
+    f.write(str(opt_submod_val.item()) + '\n')
 
     for x_t in x_opt:
         f.write(str(x_t.item()) + '\n')
