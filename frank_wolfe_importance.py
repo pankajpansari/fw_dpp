@@ -186,6 +186,7 @@ def runImportanceFrankWolfe(L, nsamples, k, log_file, opt_file, iterates_file, n
 
     opt_submod_val = dpp_obj(S.numpy()) 
 
+    print "Items selected: " + ' '.join([str(x) for x in range(N) if S[x] == 1])
     print "Rounded discrete solution with pruning= ", opt_submod_val.item()
     print "(Rounded discrete solution without pruning = ", dpp_obj(I.numpy()).item()
 

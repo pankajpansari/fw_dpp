@@ -183,6 +183,118 @@ def plot_email_solution_variance():
 #    plt.savefig('variance_solution.jpg')
     plt.show()
 
+
+def plot_DPP_solution_variance_ratio(k):
+    greedy_sol = parse_DPP_greedy(k)
+
+    solution_dir = '/home/pankaj/Sampling/data/working/20-08-2018-dpp_fw_variance/workspace/'
+    file_list = os.listdir(solution_dir)
+    key_list = '0_0_0.0'
+    label_list = 'simple MC'
+    fw_iter = 20
+ 
+    nsamples_list = [1, 5, 10, 20, 50, 100]
+
+    avg_mean = []
+    avg_std = []
+    for nsamples in nsamples_list:
+        b = []
+        c = []
+        for dpp_id in range(5):
+            greedy_val = greedy_sol[dpp_id]
+            a = []
+            for t in range(10):
+                seed = 123 + t 
+                opt_file = 'fw_opt_N_100_' + '_'.join(str(x) for x in [dpp_id, k, nsamples, fw_iter, key_list, seed]) + '.txt'
+
+                if opt_file not in file_list:
+                    print opt_file
+                    sys.exit()
+
+                f = open(solution_dir + opt_file, 'r')
+                opt = float(next(f))
+                f.close()
+                a.append(opt*1.0/greedy_val) 
+            b.append(np.mean(a))
+            c.append(np.std(a))
+        avg_mean.append(np.mean(b))
+        avg_std.append(np.mean(c))
+
+    print avg_mean
+    print avg_std
+    plt.errorbar(nsamples_list, avg_mean, yerr = avg_std, xerr = None, marker = '^')
+    plt.axhline(1.0, c = 'r')
+    plt.savefig('variance_ratio_solution_dpp_k_' + str(k) + '.jpg')
+    plt.show()
+
+def plot_DPP_solution_variance(k):
+
+    solution_dir = '/home/pankaj/Sampling/data/working/20-08-2018-dpp_fw_variance/workspace/'
+    file_list = os.listdir(solution_dir)
+    key_list = '0_0_0.0'
+    label_list = 'simple MC'
+    fw_iter = 20
+    a = []
+    c = []
+    nsamples_list = [1, 5, 10, 20, 50, 100]
+    d = []
+    e = []
+    for nsamples in nsamples_list:
+        a = []
+        c = []
+        for dpp_id in range(5):
+            b = []
+            for t in range(10):
+                seed = 123 + t 
+                opt_file = 'fw_opt_N_100_' + '_'.join(str(x) for x in [dpp_id, k, nsamples, fw_iter, key_list, seed]) + '.txt'
+
+                if opt_file not in file_list:
+                    print opt_file
+                    sys.exit()
+
+                f = open(solution_dir + opt_file, 'r')
+                opt = float(next(f))
+                f.close()
+                b.append(opt)
+            a.append(np.var(b))
+            c.append(np.mean(b))
+        d.append(np.mean(a))
+        e.append(np.mean(c))
+    print d, e
+
+    #get average of greedy solutions
+    greedy_val = parse_DPP_greedy()
+    print greedy_val
+    plt.subplot(2, 1, 1)
+    plt.plot(nsamples_list, d, label = label_list, marker = '+', markersize = 10)
+    plt.xlabel('# samples for relaxation estimation')
+    plt.ylabel('Var of 10 rounded solutions (averaged over 5 DPPs)')
+    plt.legend()
+    plt.subplot(2, 1, 2)
+    plt.plot(nsamples_list, e, label = label_list, marker = '+', markersize = 10)
+    plt.axhline(greedy_val[2], c = 'r', ls = '--', label = 'greedy solution (avg)')
+    plt.xlabel('# samples for relaxation estimation')
+    plt.ylabel('Mean of 10 rounded solutions (averaged over 5 DPPs)')
+    plt.legend()
+    plt.savefig('variance_solution_dpp_k_' + str(k) + '.jpg')
+    plt.show()
+
+def parse_DPP_greedy(k):
+    solution_dir = '/home/pankaj/Sampling/data/working/20-08-2018-dpp_fw_variance/greedy/'
+    file_list = os.listdir(solution_dir)
+    a = []
+    for i in range(5):
+        results_file = 'greedy_sfo_100_id_' + str(i) + '_k_'+ str(k) + '.txt'
+        if results_file not in file_list:
+            print results_file
+            sys.exit()
+
+        f = open(solution_dir + results_file, 'r')
+        opt_val = float(next(f).split(' ')[0])
+        f.close()
+        a.append(opt_val)   
+    return a
+
 def parse_email_timing():
 
     solution_dir = '/home/pankaj/Sampling/data/working/13-08-2018-email_sol_var_mc/workspace/'
@@ -316,6 +428,8 @@ if __name__ == '__main__':
 #    main()
 #    plot_iterates_hist()
 #    plot_email_solution_variance()
+    k = sys.argv[1]
+    plot_DPP_solution_variance_ratio(k)
 #    plot_email_obj()
-    plot_facebook_obj()
-#    parse_email_timing()
+#    plot_facebook_obj()
+#    parse_DPP_greedy()
