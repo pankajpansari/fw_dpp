@@ -48,34 +48,27 @@ class GraphConv(nn.Module):
         for i in range(n_layer):
             self.layers.add_module(str(i), GraphConvLayer(p, w_std, extra_feat_size))
 
-    def forward(self, x, adjacency, extra_feat):
-        assert(adjacency.ndimension() == 3)
-        assert(x.ndimension() == 2)
+    def forward(self, x, adjacency, node_feat, edge_feat):
 
-        batch_size = adjacency.size(0)
-        n_node = adjacency.size(1)
+        batch_size = x.size(0)
+        n_node = x.size(1)
+
 
         to_stack = []
         to_stack.append(Variable(torch.ones(batch_size, n_node)))
         to_stack.append(x)
         to_stack.append(1 - x)
 
-        assert(extra_feat.ndimension() == 3)
-        assert(extra_feat.size(2) == self.extra_feat_size)
-
-        for i in range(extra_feat.size(2)):
-            to_stack.append(extra_feat.select(2, i))
+#        for i in range(extra_feat.size(2)):
+#            to_stack.append(extra_feat.select(2, i))
 
         node_feat = torch.stack(to_stack, 1).float()
 
-        edge_feat = Variable(torch.ones(batch_size, n_node, n_node))
-
-        # Bias term only as edge features
-#        edge_feat.select(1, 1).fill_(1)
+        edge_feat = Variable(torch.ones(1, n_node, n_node))
+        edge_feat = edge_feat.repeat(batch_size, 1, 1)
 
         mu = Variable(torch.zeros(batch_size, self.p, n_node))
 
-#        print node_feat.size(), edge_feat.size()
         for layer in self.layers:
             mu = layer(node_feat, mu, adjacency, edge_feat)
 
@@ -114,11 +107,11 @@ class GraphScorer(nn.Module):
 
         output_distribution = torch.sigmoid(output)
 
-        factors = self.k/output_distribution.sum(dim = 1)
-        project_output = torch.mul(output_distribution, factors.expand_as(output_distribution.t()).t())
-        project_output[project_output > 1] = 1 - 1e-4
-        return project_output 
-#        return output_distribution
+#        factors = self.k/output_distribution.sum(dim = 1)
+#        project_output = torch.mul(output_distribution, factors.expand_as(output_distribution.t()).t())
+#        project_output[project_output > 1] = 1 - 1e-4
+#        return project_output 
+        return output_distribution
 class MyNet(nn.Module):
     def __init__(self, k):
         super(MyNet, self).__init__()
@@ -126,12 +119,12 @@ class MyNet(nn.Module):
         n_layer = 3
         p = 28
         w_scale = 1e-1
-        extra_feat = 5
+        extra_feat = 0
         self.conv = GraphConv(n_layer, p, w_scale, extra_feat)
         self.scorer = GraphScorer(p, w_scale, k)
 
-    def forward(self, x, adjacency, extra, choice=None):
-        mu = self.conv(x, adjacency, extra)
+    def forward(self, x, adjacency, node_feat, edge_feat):
+        mu = self.conv(x, adjacency, node_feat, edge_feat)
         scores = self.scorer(mu)
         return scores
 
