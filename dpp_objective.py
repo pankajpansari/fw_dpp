@@ -14,14 +14,24 @@ from read_files import read_dpp
 random.seed(1234)
 
 class DPP(object):
-    def __init__(self, L):
+    def __init__(self, qualities, features):
         self.cache = {}
         self.cache_hits = 0
-        self.L = L
-        self.N = L.shape[0]
+        self.qualities = qualities #vector of size #items (N)
+        self.features =  features #matrix of size #features(D)XN
+        self.N = qualities.shape[0]
+        self.L = self.getMatrix(qualities, features)
         self.itr_total = 0
         self.itr_new = 0
         self.itr_cache = 0
+
+    def getMatrix(self, qualities, features):
+        D = features.size()[0]
+        B = torch.zeros((D, self.N))
+        for t in range(self.N):
+            B[:, t] = qualities[t]*features[:, t]
+        L = torch.mm(B.t(), B)
+        return L
 
     def cache_reset(self):
         self.cache.reset()

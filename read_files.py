@@ -53,11 +53,10 @@ def get_fw_optimum(filename, N):
 
 def read_dpp(dpp_file, N, dpp_id):
     with h5py.File(dpp_file, 'r') as hf:
-        L = hf.get(dpp_id)
-        L = torch.Tensor(L)
+        quality = torch.Tensor(hf['quality'].get(dpp_id))
+        feature = torch.Tensor(hf['feature'].get(dpp_id))
         hf.close()
-        assert(L.shape == (N, N))
-        return L
+        return (quality, feature)
 
 
 if __name__ == '__main__':

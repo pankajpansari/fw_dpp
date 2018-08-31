@@ -20,7 +20,8 @@ def clustered_DPP():
     
     params_string = '_'.join(str(x) for x in [N, mu_q, D, mu_phi, sigma_phi, n_dpp, k])
     hf = h5py.File('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_' + params_string + '.h5', 'w')
-
+    hf.create_group('quality')
+    hf.create_group('feature')
     for p in range(n_dpp):
         q = np.array([mu_q]*N)
         
@@ -43,13 +44,15 @@ def clustered_DPP():
             else:
                 print "Cannot divide by 0!"
 
-        B = np.zeros((D, N))
-        for t in range(N):
-            B[:, t] = q[t]*phi_n[:, t]
+#        B = np.zeros((D, N))
+#        for t in range(N):
+#            B[:, t] = q[t]*phi_n[:, t]
+#         
+#        L = (B.T).dot(B)
+#        hf.create_dataset('dpp_' + str(p), data = L)
+        hf['quality'].create_dataset('dpp_' + str(p), data = q)
+        hf['feature'].create_dataset('dpp_' + str(p), data = phi_n)
          
-        L = (B.T).dot(B)
-        hf.create_dataset('dpp_' + str(p), data = L)
-
     hf.close()
 
 
