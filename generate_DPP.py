@@ -5,9 +5,9 @@ import h5py
 def clustered_DPP():
     #Quality same for all items
     #Feature vectors such that the items are grouped in k categories
-    k = 10 
+    k = 2
     n_dpp = 5
-    N = 100 #number of items
+    N = 10 #number of items
 
     #Quality parameters
     mu_q = 2 
@@ -58,7 +58,7 @@ def clustered_DPP():
 
 def random_DPP():
     n_dpp = 5
-    N = 100 #number of items
+    N = 10 #number of items
     D = N/2 #number of features
 
     #Quality parameters

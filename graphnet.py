@@ -112,13 +112,14 @@ class GraphScorer(nn.Module):
 #        project_output[project_output > 1] = 1 - 1e-4
 #        return project_output 
         return output_distribution
+
 class MyNet(nn.Module):
     def __init__(self, k):
         super(MyNet, self).__init__()
         
         n_layer = 3
         p = 28
-        w_scale = 1e-1
+        w_scale = 1e-2
         extra_feat = 0
         self.conv = GraphConv(n_layer, p, w_scale, extra_feat)
         self.scorer = GraphScorer(p, w_scale, k)

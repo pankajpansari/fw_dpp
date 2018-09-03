@@ -11,6 +11,7 @@ import time
 import torch
 from torch.autograd import Variable
 from graphnet import MyNet
+from read_files import read_dpp
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -58,6 +59,7 @@ def kl_loss_forward(x_mat, q_mat, dpp, nsamples):
 
         ratio = (f_val*prob_x)/prob_q
 
+        print f_val, prob_x, prob_q 
         kl_value += torch.sum(f_val*torch.log(ratio))/nsamples
     
     return kl_value/batch_size
@@ -92,6 +94,8 @@ def kl_loss_reverse(x, q, dpp, nsamples):
 def training(x_mat, dpp, args):
 
     net = MyNet(10)
+
+    net.zero_grad()
     optimizer = optim.SGD(net.parameters(), lr=args['recon_lr'], momentum = args['recon_mom'])
 
     batch_size = int(x_mat.shape[0]) 
@@ -118,6 +122,9 @@ def training(x_mat, dpp, args):
         loss.backward()
         optimizer.step()    # Does the update
 
+    print x_mat
+    print net(x_mat, adjacency, node_feat, edge_feat)
+
     optimizer2 = optim.SGD(net.parameters(), lr=args['kl_lr'], momentum = args['kl_mom'])
 
     for epoch in range(args['kl_epochs']):
@@ -135,9 +142,11 @@ def training(x_mat, dpp, args):
 #-training parameters
 
 if __name__ == '__main__':
-    x_mat = torch.rand(2, 4)
-    qualities = torch.rand(4)
-    features = torch.rand(3, 4)
+    N = 10
+    x_mat = torch.rand(2, N)
+    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_10_2_20_2_1_5_2.h5', N, 'dpp_1') 
+    
     dpp = DPP(qualities, features)
-    args = { 'recon_lr': 1e-3,  'kl_lr' : 1e-3,  'recon_mom' : 1e-3,  'kl_mom' : 1e-3, 'recon_epochs' : 10, 'kl_epochs' : 10, 'minibatch_size' : 2,  'num_samples_mc' : 10}
+    args = { 'recon_lr': 1e-1,  'kl_lr' : 1e-3,  'recon_mom' : 1e-3,  'kl_mom'
+            : 1e-3, 'recon_epochs' : 1000, 'kl_epochs' : 0, 'minibatch_size' : 2,  'num_samples_mc' : 1}
     training(x_mat, dpp, args)
