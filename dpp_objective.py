@@ -44,7 +44,7 @@ class DPP(object):
 
     def __call__(self, sample):
 
-        key = sample.tobytes()
+        key = sample.numpy().tobytes()
         self.itr_total += 1 
         if key not in self.cache:
             self.itr_new += 1 
@@ -67,11 +67,7 @@ def getDet(L, sample):
 
     subRowsMatrix = L.index_select(0, this_set)
     subMat = subRowsMatrix.index_select(1, this_set)
-    temp = subMat.data.numpy()
-    detVal = np.linalg.det(temp)
-    temp = np.array([detVal])
-    return torch.from_numpy(temp)
-
+    return torch.potrf(subMat).diag().prod()
  
 def main():
     N = 100 
