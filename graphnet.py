@@ -119,7 +119,7 @@ class MyNet(nn.Module):
         
         n_layer = 3
         p = 28
-        w_scale = 1e-2
+        w_scale = 1e-4
         extra_feat = 0
         self.conv = GraphConv(n_layer, p, w_scale, extra_feat)
         self.scorer = GraphScorer(p, w_scale, k)
