@@ -33,7 +33,6 @@ def kl_loss_exact_forward(x, q, dpp):
 
     kl_value = Variable(torch.Tensor([0]))
     power_set = map(list, itertools.product([0, 1], repeat=dpp.N))
-
     kl_val_sample = []
     for binary_vec in power_set:
 
@@ -42,10 +41,10 @@ def kl_loss_exact_forward(x, q, dpp):
         f_val = torch.abs(dpp(sample))
 
         temp = x*sample + (1-x)*(1 - sample)
-        prob_x = torch.prod(temp, 1)
+        prob_x = torch.prod(temp)
 
         temp = q*sample + (1-q)*(1 - sample)
-        prob_q = torch.prod(temp, 1)
+        prob_q = torch.prod(temp)
 
         ratio = (f_val*prob_x)/prob_q
 
@@ -60,15 +59,16 @@ def kl_loss_forward(x_mat, q_mat, dpp, nsamples):
     batch_size = x_mat.size()[0]
     kl_value = torch.Tensor([0])
 
+    kl_value = []
     for p in range(batch_size):
 
         x = x_mat[p]
         q = q_mat[p]
 
-        f_val = Variable(torch.FloatTensor([0]*nsamples)) 
+        f_val = torch.FloatTensor([0]*nsamples)
         N = dpp.N 
 
-        samples = Variable(torch.bernoulli(x.repeat(nsamples, 1)))
+        samples = torch.bernoulli(x.repeat(nsamples, 1))
 
         count = 0
 
@@ -82,128 +82,13 @@ def kl_loss_forward(x_mat, q_mat, dpp, nsamples):
         temp = q*samples + (1-q)*(1 - samples)
         prob_q = torch.prod(temp, 1)
 
+#        print (prob_q**2)/(prob_q**2)
         ratio = (f_val*prob_x)/prob_q
 
-        kl_value += torch.sum(f_val*torch.log(ratio))/nsamples
+#        kl_value.append(torch.sum(f_val*torch.log(ratio))/nsamples)
+        kl_value.append(torch.sum(-f_val*torch.log(prob_q)))
     
-    return kl_value/batch_size
-
-
-def kl_loss_exact_reverse(x, q, dpp):
-
-    kl_value = Variable(torch.Tensor([0]))
-    power_set = map(list, itertools.product([0, 1], repeat=dpp.N))
-
-    #get normalisation constant
-    C = Variable(torch.Tensor([0]))
-
-    sample_loss = []
-    for binary_vec in power_set:
-
-        sample = Variable(torch.from_numpy(np.array(binary_vec)).float())
-
-        f_val = torch.abs(dpp(sample))
-
-        temp = x*sample + (1-x)*(1 - sample)
-        prob_x = torch.prod(temp, 1)
-
-        temp = q*sample + (1-q)*(1 - sample)
-        prob_q = torch.prod(temp, 1)
-
-        ratio = prob_q/(f_val*prob_x)
-
-        sample_loss.append(prob_q*torch.log(ratio))
-
-        kl_value += prob_q*torch.log(ratio)
-
-        C = torch.add(C, f_val*prob_x)
-
-    exact_kl_value = kl_value + torch.log(C) 
-    return sum(sample_loss)
-#    return kl_value
-    
-
-
-def kl_loss_reverse(x_mat, q_mat, dpp, nsamples):
-
-    batch_size = x_mat.size()[0]
-    kl_value = torch.Tensor([0])
-
-    rewards = []
-    for p in range(batch_size):
-
-        x = x_mat[p]
-        q = q_mat[p]
-
-        f_val = Variable(torch.FloatTensor([0]*nsamples)) 
-        N = dpp.N 
-
-        samples = Variable(torch.bernoulli(q.repeat(nsamples, 1)))
-
-        count = 0
-
-        for t in samples:
-            f_val[count] = torch.abs(dpp(t.numpy()))
-            count += 1
-
-        temp = x*samples + (1-x)*(1 - samples)
-        prob_x = torch.prod(temp, 1)
-
-        temp = q*samples + (1-q)*(1 - samples)
-        prob_q = torch.prod(temp, 1)
-
-        ratio = prob_q/(f_val*prob_x)
-
-        importance_weights = prob_q/prob_x
-
-#        kl_value += torch.sum(importance_weights * torch.log(ratio))/nsamples
-        kl_value += torch.sum(torch.log(ratio))/nsamples
-    
-    return kl_value/batch_size
-
-def kl_loss_reverse2(x_mat, q_mat, dpp, nsamples):
-
-    kl_value = Variable(torch.Tensor([0]))
-
-    reward = []
-
-    x = x_mat[0, :]
-    q = q_mat[0, :]
-
-    for t in range(nsamples):
-
-        sample = torch.bernoulli(q)
-
-        f_val = torch.abs(dpp(sample))
-
-        temp = x*sample + (1-x)*(1 - sample)
-        prob_x = torch.prod(temp)
-
-        temp = q*sample + (1-q)*(1 - sample)
-        prob_q = torch.prod(temp)
-
-        ratio = prob_q/(f_val*prob_x)
-
-        reward.insert(0, -torch.log(ratio))
-
-    return -sum(reward)/nsamples
-
-
-def reinforce_func(x, q, dpp, sample):
-    f_val = torch.abs(dpp(sample.numpy()))
-
-    temp = x*sample + (1-x)*(1 - sample)
-    prob_x = torch.prod(temp, 1)
-
-    temp = q*sample + (1-q)*(1 - sample)
-    prob_q = torch.prod(temp, 1)
-
-def reinforce_grad(x, q, dpp, nsamples):
-    samples = Variable(torch.bernoulli(q.repeat(nsamples, 1)))
-    for sample in samples:
-        temp = reinforce_func(x, q, dpp, sample) 
-        temp.backward()
-    print q.grad.data/nsamples        
+    return sum(kl_value)/(batch_size*nsamples)
 
 #Training function 
 #Two phase training - reconstruction loss and then KL loss
@@ -231,9 +116,8 @@ def training(x_mat, dpp, args):
 
     for epoch in range(args['recon_epochs']):
         optimizer.zero_grad()   # zero the gradient buffers
-#        ind = torch.randperm(batch_size)[0:args['minibatch_size']]
-#        minibatch = x_mat[ind]
-        minibatch = x_mat
+        ind = torch.randperm(batch_size)[0:args['minibatch_size']]
+        minibatch = x_mat[ind]
         output = net(minibatch, adjacency, node_feat, edge_feat) 
         loss = reconstruction_loss(minibatch, output)
         print "Epoch: ", epoch, "       loss (l2 reconstruction) = ", loss.data.numpy()
@@ -243,58 +127,54 @@ def training(x_mat, dpp, args):
     net.zero_grad()
 
     optimizer2 = optim.SGD(net.parameters(), lr=args['kl_lr'], momentum = args['kl_mom'])
+#    optimizer2 = optim.Adam(net.parameters(), lr=args['kl_lr'])
 
     for epoch in range(args['kl_epochs']):
         optimizer2.zero_grad()   # zero the gradient buffers
-#        ind = torch.randperm(batch_size)[0:args['minibatch_size']]
-#        minibatch = x_mat[ind]
-        minibatch = x_mat
+        ind = torch.randperm(batch_size)[0:args['minibatch_size']]
+        minibatch = x_mat[ind]
         output = net(minibatch, adjacency, node_feat, edge_feat) 
         loss = kl_loss_forward(minibatch, output, dpp, args['num_samples_mc'])
-#        loss = kl_loss_exact(minibatch, output, dpp)
         loss.backward()
         optimizer2.step()    # Does the update
-        print output
-#        print loss.grad_fn
-#        print [x.grad.data for x in net.parameters()]
-        print "Epoch: ", epoch, "       loss (kl) = ", loss.item()
+        if epoch % 20 == 0:
+            accurate_loss = kl_loss_forward(minibatch, output, dpp, 10000)
+            print "Epoch: ", epoch, "       accurate loss (kl) = ", accurate_loss.item()
+        else:
+            print "Epoch: ", epoch, "       loss (kl) = ", loss.item()
 
-#    print x_mat
-#    print net(x_mat, adjacency, node_feat, edge_feat)
-#main function accepting as input:
-#-DPP matrices
-#-training parameters
+#if  __name__ == '__main__':
+#
+#    N = 10 
+#
+#    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_10_2_20_2_1_5_2.h5', N, 'dpp_1') 
+#    
+#    dpp = DPP(qualities, features)
+#
+#    x = torch.rand(1, N)
+#    y = torch.rand(1, N, requires_grad = True)
+#
+#    loss = kl_loss_exact_forward(x, y, dpp)
+#    print loss
+#    loss.backward() 
+#    print y.grad.data
+#
+#    y.grad.data = torch.zeros(y.size())
+#    loss = kl_loss_forward(x, y, dpp, 1000)
+#    print loss
+#    loss.backward()
+#    print y.grad.data
+
 
 if  __name__ == '__main__':
 
-    N = 10 
-
-    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_10_2_20_2_1_5_2.h5', N, 'dpp_1') 
+    N = 100
+#    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_10_2_20_2_1_5_2.h5', N, 'dpp_1') 
+    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_100_2_200_2_1_5_10.h5', N, 'dpp_1') 
     
     dpp = DPP(qualities, features)
+ 
+    x_mat = torch.rand(1, N)
 
-    x = torch.rand(1, N)
-    y = torch.rand(1, N, requires_grad = True)
-
-    loss = kl_loss_exact_forward(x, y, dpp)
-    print loss
-    loss.backward() 
-    print y.grad.data
-
-    y.grad.data = torch.zeros(y.size())
-    loss = kl_loss_forward(x, y, dpp, 1000)
-    print loss
-    loss.backward()
-    print y.grad.data
-
-
-#if  __name__ == '__main__':
-#    N = 100
-#    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_100_2_200_2_1_5_10.h5', N, 'dpp_1') 
-#    
-#    dpp = DPP(qualities, features)
-# 
-#    x_mat = torch.rand(2, N)
-#
-#    args = {'recon_lr': 1e-3,  'kl_lr' : 1e-6,  'recon_mom' : 1e-3,  'kl_mom' : 1e-5, 'recon_epochs' : 500, 'kl_epochs' : 4, 'minibatch_size' : 1,  'num_samples_mc' : 1}
-#    training(x_mat, dpp, args)
+    args = {'recon_lr': 1e-3,  'kl_lr' : 1e-2,  'recon_mom' : 1e-3,  'kl_mom' : 0.9, 'recon_epochs' : 500, 'kl_epochs' : 1000, 'minibatch_size' : 1,  'num_samples_mc' : 100}
+    training(x_mat, dpp, args)
