@@ -10,8 +10,8 @@ class GraphConvLayer(nn.Module):
         self.p = p
         self.w_std = w_std
 
-        num_node_feat = 3 + extra_feat_size
-        self.num_edge_feat = 1
+        num_node_feat = 3 + 201 
+        self.num_edge_feat = 408 
         self.t1 = nn.Parameter(torch.Tensor(self.p, num_node_feat))
         self.t2 = nn.Parameter(torch.Tensor(self.p, self.p))
         self.t3 = nn.Parameter(torch.Tensor(self.p, self.p))
@@ -54,23 +54,32 @@ class GraphConv(nn.Module):
         n_node = x.size(1)
 
 
+        #Add bias, x and 1-x to node features
         to_stack = []
-        to_stack.append(Variable(torch.ones(batch_size, n_node)))
+        to_stack.append(torch.ones(batch_size, n_node))
         to_stack.append(x)
         to_stack.append(1 - x)
+        stacked = torch.stack(to_stack, 1).float()
+        augmented_node_feat = torch.cat((stacked, node_feat), 1) 
 
-#        for i in range(extra_feat.size(2)):
-#            to_stack.append(extra_feat.select(2, i))
+        #Add bias, x_i, x_j, 1-x_i, 1-x_j to the edge features
+        to_stack = []
+        to_stack.append(torch.ones(batch_size, 1, n_node, n_node))
+        stacked = torch.zeros(batch_size, 5, n_node, n_node)
 
-        node_feat = torch.stack(to_stack, 1).float()
-
-        edge_feat = Variable(torch.ones(1, n_node, n_node))
-        edge_feat = edge_feat.repeat(batch_size, 1, 1)
+        for i in range(n_node):
+            for j in range(n_node):
+                stacked[:, 0, i, j] =  torch.ones(batch_size)
+                stacked[:, 1, i, j] =  x[:, i]
+                stacked[:, 2, i, j] =  x[:, j]
+                stacked[:, 3, i, j] =  1 - x[:, i]
+                stacked[:, 4, i, j] =  1 - x[:, j]
+        augmented_edge_feat = torch.cat((stacked, edge_feat), 1) 
 
         mu = Variable(torch.zeros(batch_size, self.p, n_node))
 
         for layer in self.layers:
-            mu = layer(node_feat, mu, adjacency, edge_feat)
+            mu = layer(augmented_node_feat, mu, adjacency, augmented_edge_feat)
 
         return mu
 

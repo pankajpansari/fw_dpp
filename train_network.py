@@ -104,14 +104,27 @@ def training(x_mat, dpp, args):
 
     #Quality and feature vector as node_feat
     node_feat = torch.cat((torch.unsqueeze(dpp.qualities, 0), dpp.features), 0)
-    node_feat = node_feat.t()
     node_feat = node_feat.repeat(batch_size, 1, 1) 
 
     #Concatenated feature vectors and qualities + dot product
-    edge_feat = torch.zeros(1, dpp.N, dpp.N)
+    edge_feat = torch.zeros(403, dpp.N, dpp.N)
 
-    #Fully-connected graph
+    for i in range(dpp.N):
+        for j in range(dpp.N):
+            node_feat_i = node_feat[0, :, i]
+            node_feat_j = node_feat[0, :, j]
+            feat_i = node_feat[0, 1:, i]
+            feat_j = node_feat[0, 1:, j]
+            similarity = torch.tensor([feat_i.dot(feat_j)])
+            temp = torch.cat((node_feat_i, node_feat_j, similarity))
+            edge_feat[:, i, j] = temp
+
+    edge_feat = edge_feat.repeat(batch_size, 1, 1, 1) 
+
+    #Fully-connected graph with diagonal elements 0
     adjacency = torch.ones(dpp.N, dpp.N) 
+    idx = torch.arange(0, dpp.N, out = torch.LongTensor())
+    adjacency[idx, idx] = 0
     adjacency = adjacency.repeat(batch_size, 1, 1)
 
     for epoch in range(args['recon_epochs']):
@@ -127,7 +140,6 @@ def training(x_mat, dpp, args):
     net.zero_grad()
 
     optimizer2 = optim.SGD(net.parameters(), lr=args['kl_lr'], momentum = args['kl_mom'])
-#    optimizer2 = optim.Adam(net.parameters(), lr=args['kl_lr'])
 
     for epoch in range(args['kl_epochs']):
         optimizer2.zero_grad()   # zero the gradient buffers
@@ -142,29 +154,6 @@ def training(x_mat, dpp, args):
             print "Epoch: ", epoch, "       accurate loss (kl) = ", accurate_loss.item()
         else:
             print "Epoch: ", epoch, "       loss (kl) = ", loss.item()
-
-#if  __name__ == '__main__':
-#
-#    N = 10 
-#
-#    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_10_2_20_2_1_5_2.h5', N, 'dpp_1') 
-#    
-#    dpp = DPP(qualities, features)
-#
-#    x = torch.rand(1, N)
-#    y = torch.rand(1, N, requires_grad = True)
-#
-#    loss = kl_loss_exact_forward(x, y, dpp)
-#    print loss
-#    loss.backward() 
-#    print y.grad.data
-#
-#    y.grad.data = torch.zeros(y.size())
-#    loss = kl_loss_forward(x, y, dpp, 1000)
-#    print loss
-#    loss.backward()
-#    print y.grad.data
-
 
 if  __name__ == '__main__':
 
