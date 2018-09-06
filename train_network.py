@@ -80,11 +80,10 @@ def kl_loss_forward(x_mat, q_mat, dpp, nsamples):
         prob_x = torch.prod(temp, 1)
 
         temp = q*samples + (1-q)*(1 - samples)
-        prob_q = torch.prod(temp, 1)
+#        prob_q = torch.prod(temp, 1)
+        log_prob_q = torch.log(temp).sum(1)
 
-        ratio = (f_val*prob_x)/prob_q
-
-        kl_value.append(torch.sum(-f_val*torch.log(prob_q)))
+        kl_value.append(torch.sum(-f_val*log_prob_q))
     
     return sum(kl_value)/(batch_size*nsamples)
 
@@ -144,8 +143,8 @@ def training(x_mat, dpp, args):
         output = net(minibatch, adjacency, node_feat, edge_feat) 
         loss = kl_loss_forward(minibatch, output, dpp, args['num_samples_mc'])
         loss.backward()
-        for params in net.parameters():
-            print params.grad.data
+#        for params in net.parameters():
+#            print params.grad.data
 #            if (params.grad == float('inf')).sum() >= 1:
 #                print params.grad
 #                sys.exit()
@@ -166,6 +165,5 @@ if  __name__ == '__main__':
  
     x_mat = torch.rand(1, N)
 
-    args = {'recon_lr': 1e-3,  'kl_lr' : 1e-2,  'recon_mom' : 1e-3,  'kl_mom'
-            : 0.9, 'recon_epochs' : 100, 'kl_epochs' : 1, 'minibatch_size' : 1,  'num_samples_mc' : 100}
+    args = {'recon_lr': 1e-3,  'kl_lr' : 1e-2,  'recon_mom' : 1e-3,  'kl_mom' : 0.9, 'recon_epochs' : 100, 'kl_epochs' : 1000, 'minibatch_size' : 1,  'num_samples_mc' : 100}
     training(x_mat, dpp, args)
