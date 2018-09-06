@@ -82,10 +82,8 @@ def kl_loss_forward(x_mat, q_mat, dpp, nsamples):
         temp = q*samples + (1-q)*(1 - samples)
         prob_q = torch.prod(temp, 1)
 
-#        print (prob_q**2)/(prob_q**2)
         ratio = (f_val*prob_x)/prob_q
 
-#        kl_value.append(torch.sum(f_val*torch.log(ratio))/nsamples)
         kl_value.append(torch.sum(-f_val*torch.log(prob_q)))
     
     return sum(kl_value)/(batch_size*nsamples)
@@ -103,21 +101,19 @@ def training(x_mat, dpp, args):
     batch_size = int(x_mat.shape[0]) 
 
     #Quality and feature vector as node_feat
-    node_feat = torch.cat((torch.unsqueeze(dpp.qualities, 0), dpp.features), 0)
+    node_feat = torch.unsqueeze(dpp.qualities, 0)
     node_feat = node_feat.repeat(batch_size, 1, 1) 
 
     #Concatenated feature vectors and qualities + dot product
-    edge_feat = torch.zeros(403, dpp.N, dpp.N)
+    edge_feat = torch.zeros(1, dpp.N, dpp.N)
 
     for i in range(dpp.N):
         for j in range(dpp.N):
-            node_feat_i = node_feat[0, :, i]
-            node_feat_j = node_feat[0, :, j]
-            feat_i = node_feat[0, 1:, i]
-            feat_j = node_feat[0, 1:, j]
-            similarity = torch.tensor([feat_i.dot(feat_j)])
-            temp = torch.cat((node_feat_i, node_feat_j, similarity))
-            edge_feat[:, i, j] = temp
+            feat_i = dpp.features[:, i]
+            feat_j = dpp.features[:, j]
+            quality_term = (dpp.qualities[i]*dpp.qualities[j])**2
+            diversity_term = 1 - (feat_i.dot(feat_j))**2
+            edge_feat[0, i, j] = quality_term * diversity_term 
 
     edge_feat = edge_feat.repeat(batch_size, 1, 1, 1) 
 
@@ -148,6 +144,11 @@ def training(x_mat, dpp, args):
         output = net(minibatch, adjacency, node_feat, edge_feat) 
         loss = kl_loss_forward(minibatch, output, dpp, args['num_samples_mc'])
         loss.backward()
+        for params in net.parameters():
+            print params.grad.data
+#            if (params.grad == float('inf')).sum() >= 1:
+#                print params.grad
+#                sys.exit()
         optimizer2.step()    # Does the update
         if epoch % 20 == 0:
             accurate_loss = kl_loss_forward(minibatch, output, dpp, 10000)
@@ -165,5 +166,6 @@ if  __name__ == '__main__':
  
     x_mat = torch.rand(1, N)
 
-    args = {'recon_lr': 1e-3,  'kl_lr' : 1e-2,  'recon_mom' : 1e-3,  'kl_mom' : 0.9, 'recon_epochs' : 500, 'kl_epochs' : 1000, 'minibatch_size' : 1,  'num_samples_mc' : 100}
+    args = {'recon_lr': 1e-3,  'kl_lr' : 1e-2,  'recon_mom' : 1e-3,  'kl_mom'
+            : 0.9, 'recon_epochs' : 100, 'kl_epochs' : 1, 'minibatch_size' : 1,  'num_samples_mc' : 100}
     training(x_mat, dpp, args)

@@ -10,8 +10,8 @@ class GraphConvLayer(nn.Module):
         self.p = p
         self.w_std = w_std
 
-        num_node_feat = 3 + 201 
-        self.num_edge_feat = 408 
+        num_node_feat = 3 
+        self.num_edge_feat = 2 
         self.t1 = nn.Parameter(torch.Tensor(self.p, num_node_feat))
         self.t2 = nn.Parameter(torch.Tensor(self.p, self.p))
         self.t3 = nn.Parameter(torch.Tensor(self.p, self.p))
@@ -54,27 +54,14 @@ class GraphConv(nn.Module):
         n_node = x.size(1)
 
 
-        #Add bias, x and 1-x to node features
+        #Add bias and x to node features
         to_stack = []
-        to_stack.append(torch.ones(batch_size, n_node))
-        to_stack.append(x)
-        to_stack.append(1 - x)
-        stacked = torch.stack(to_stack, 1).float()
-        augmented_node_feat = torch.cat((stacked, node_feat), 1) 
+        bias = torch.ones(batch_size, 1, n_node)
+        augmented_node_feat = torch.cat((bias, torch.unsqueeze(x, 1), node_feat), 1) 
 
-        #Add bias, x_i, x_j, 1-x_i, 1-x_j to the edge features
-        to_stack = []
-        to_stack.append(torch.ones(batch_size, 1, n_node, n_node))
-        stacked = torch.zeros(batch_size, 5, n_node, n_node)
-
-        for i in range(n_node):
-            for j in range(n_node):
-                stacked[:, 0, i, j] =  torch.ones(batch_size)
-                stacked[:, 1, i, j] =  x[:, i]
-                stacked[:, 2, i, j] =  x[:, j]
-                stacked[:, 3, i, j] =  1 - x[:, i]
-                stacked[:, 4, i, j] =  1 - x[:, j]
-        augmented_edge_feat = torch.cat((stacked, edge_feat), 1) 
+        #Add bias to the edge features
+        bias = torch.ones(batch_size, 1, n_node, n_node)
+        augmented_edge_feat = torch.cat((bias, edge_feat), 1) 
 
         mu = Variable(torch.zeros(batch_size, self.p, n_node))
 
