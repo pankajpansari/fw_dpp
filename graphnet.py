@@ -10,9 +10,9 @@ class GraphConvLayer(nn.Module):
         self.p = p
         self.w_std = w_std
 
-        num_node_feat = 3 
+        self.num_node_feat = 3 
         self.num_edge_feat = 2 
-        self.t1 = nn.Parameter(torch.Tensor(self.p, num_node_feat))
+        self.t1 = nn.Parameter(torch.Tensor(self.p, self.num_node_feat))
         self.t2 = nn.Parameter(torch.Tensor(self.p, self.p))
         self.t3 = nn.Parameter(torch.Tensor(self.p, self.p))
         self.t4 = nn.Parameter(torch.Tensor(self.p, self.num_edge_feat))
@@ -42,11 +42,10 @@ class GraphConv(nn.Module):
     def __init__(self, n_layer, p, w_std, extra_feat_size=0):
         super(GraphConv, self).__init__()
         self.p = p
-        self.extra_feat_size = extra_feat_size
 
         self.layers = nn.ModuleList()
         for i in range(n_layer):
-            self.layers.add_module(str(i), GraphConvLayer(p, w_std, extra_feat_size))
+            self.layers.add_module(str(i), GraphConvLayer(p, w_std))
 
     def forward(self, x, adjacency, node_feat, edge_feat):
 
@@ -57,11 +56,13 @@ class GraphConv(nn.Module):
         #Add bias and x to node features
         to_stack = []
         bias = torch.ones(batch_size, 1, n_node)
-        augmented_node_feat = torch.cat((bias, torch.unsqueeze(x, 1), node_feat), 1) 
+        temp = node_feat.repeat(batch_size, 1, 1) 
+        augmented_node_feat = torch.cat((bias, torch.unsqueeze(x, 1), temp), 1) 
 
         #Add bias to the edge features
         bias = torch.ones(batch_size, 1, n_node, n_node)
-        augmented_edge_feat = torch.cat((bias, edge_feat), 1) 
+        temp = edge_feat.repeat(batch_size, 1, 1, 1) 
+        augmented_edge_feat = torch.cat((bias, temp), 1) 
 
         mu = Variable(torch.zeros(batch_size, self.p, n_node))
 
@@ -103,11 +104,12 @@ class GraphScorer(nn.Module):
 
         output_distribution = torch.sigmoid(output)
 
+        return output_distribution
+
 #        factors = self.k/output_distribution.sum(dim = 1)
 #        project_output = torch.mul(output_distribution, factors.expand_as(output_distribution.t()).t())
 #        project_output[project_output > 1] = 1 - 1e-4
 #        return project_output 
-        return output_distribution
 
 class MyNet(nn.Module):
     def __init__(self, k):
@@ -116,8 +118,7 @@ class MyNet(nn.Module):
         n_layer = 3
         p = 28
         w_scale = 1e-4
-        extra_feat = 0
-        self.conv = GraphConv(n_layer, p, w_scale, extra_feat)
+        self.conv = GraphConv(n_layer, p, w_scale)
         self.scorer = GraphScorer(p, w_scale, k)
 
     def forward(self, x, adjacency, node_feat, edge_feat):

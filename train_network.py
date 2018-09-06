@@ -101,7 +101,7 @@ def training(x_mat, dpp, args):
 
     #Quality and feature vector as node_feat
     node_feat = torch.unsqueeze(dpp.qualities, 0)
-    node_feat = node_feat.repeat(batch_size, 1, 1) 
+#    node_feat = node_feat.repeat(batch_size, 1, 1) 
 
     #Concatenated feature vectors and qualities + dot product
     edge_feat = torch.zeros(1, dpp.N, dpp.N)
@@ -113,8 +113,6 @@ def training(x_mat, dpp, args):
             quality_term = (dpp.qualities[i]*dpp.qualities[j])**2
             diversity_term = 1 - (feat_i.dot(feat_j))**2
             edge_feat[0, i, j] = quality_term * diversity_term 
-
-    edge_feat = edge_feat.repeat(batch_size, 1, 1, 1) 
 
     #Fully-connected graph with diagonal elements 0
     adjacency = torch.ones(dpp.N, dpp.N) 
@@ -143,11 +141,6 @@ def training(x_mat, dpp, args):
         output = net(minibatch, adjacency, node_feat, edge_feat) 
         loss = kl_loss_forward(minibatch, output, dpp, args['num_samples_mc'])
         loss.backward()
-#        for params in net.parameters():
-#            print params.grad.data
-#            if (params.grad == float('inf')).sum() >= 1:
-#                print params.grad
-#                sys.exit()
         optimizer2.step()    # Does the update
         if epoch % 20 == 0:
             accurate_loss = kl_loss_forward(minibatch, output, dpp, 10000)
@@ -158,12 +151,13 @@ def training(x_mat, dpp, args):
 if  __name__ == '__main__':
 
     N = 100
-#    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_10_2_20_2_1_5_2.h5', N, 'dpp_1') 
+
     (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_100_2_200_2_1_5_10.h5', N, 'dpp_1') 
     
     dpp = DPP(qualities, features)
  
-    x_mat = torch.rand(1, N)
+    x_mat = torch.rand(100, N)
 
-    args = {'recon_lr': 1e-3,  'kl_lr' : 1e-2,  'recon_mom' : 1e-3,  'kl_mom' : 0.9, 'recon_epochs' : 100, 'kl_epochs' : 1000, 'minibatch_size' : 1,  'num_samples_mc' : 100}
+    args = {'recon_lr': 1e-3,  'kl_lr' : 1e-2,  'recon_mom' : 0.9,  'kl_mom' : 0.9, 'recon_epochs' : 1000, 'kl_epochs' : 1000, 'minibatch_size' : 100,  'num_samples_mc' : 100}
+
     training(x_mat, dpp, args)
