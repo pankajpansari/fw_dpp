@@ -20,7 +20,6 @@ import itertools
 import argparse
 from dpp_objective import DPP 
 
-torch.manual_seed(123)
 #Reconstruction loss
 def reconstruction_loss(p, q):
     #Reconstruction loss - L2 difference between input (p) and proposal (q)
@@ -95,7 +94,7 @@ def training(x_mat, dpp, args):
 
     net.zero_grad()
 #    optimizer = optim.SGD(net.parameters(), lr=args['recon_lr'], momentum = args['recon_mom'])
-    optimizer = optim.Adam(net.parameters(), lr=args['recon_lr'])
+    optimizer = optim.Adam(net.parameters(), lr=args.recon_lr)
 
     batch_size = int(x_mat.shape[0]) 
 
@@ -118,11 +117,10 @@ def training(x_mat, dpp, args):
     adjacency = torch.ones(dpp.N, dpp.N) 
     idx = torch.arange(0, dpp.N, out = torch.LongTensor())
     adjacency[idx, idx] = 0
-    adjacency = adjacency.repeat(batch_size, 1, 1)
 
-    for epoch in range(args['recon_epochs']):
+    for epoch in range(args.recon_epochs):
         optimizer.zero_grad()   # zero the gradient buffers
-        ind = torch.randperm(batch_size)[0:args['minibatch_size']]
+        ind = torch.randperm(batch_size)[0:args.minibatch_size]
         minibatch = x_mat[ind]
         output = net(minibatch, adjacency, node_feat, edge_feat) 
         loss = reconstruction_loss(minibatch, output)
@@ -132,14 +130,14 @@ def training(x_mat, dpp, args):
 
     net.zero_grad()
 
-    optimizer2 = optim.SGD(net.parameters(), lr=args['kl_lr'], momentum = args['kl_mom'])
+    optimizer2 = optim.SGD(net.parameters(), lr=args.kl_lr, momentum = args.kl_mom)
 
-    for epoch in range(args['kl_epochs']):
+    for epoch in range(args.kl_epochs):
         optimizer2.zero_grad()   # zero the gradient buffers
-        ind = torch.randperm(batch_size)[0:args['minibatch_size']]
+        ind = torch.randperm(batch_size)[0:args.minibatch_size]
         minibatch = x_mat[ind]
         output = net(minibatch, adjacency, node_feat, edge_feat) 
-        loss = kl_loss_forward(minibatch, output, dpp, args['num_samples_mc'])
+        loss = kl_loss_forward(minibatch, output, dpp, args.num_samples_mc)
         loss.backward()
         optimizer2.step()    # Does the update
         if epoch % 20 == 0:
@@ -150,14 +148,28 @@ def training(x_mat, dpp, args):
 
 if  __name__ == '__main__':
 
-    N = 100
+    parser = argparse.ArgumentParser(description='Training network using estimated forward KL-based loss for DPPs')
+    parser.add_argument('torch_seed', nargs = '?', help='Random seed for torch', type=int, default = 123)
+    parser.add_argument('N', nargs = '?', help='# of items in DPP', type=int, default = 100)
+    parser.add_argument('recon_lr', nargs = '?', help='Learning rate for reconstruction phase', type=float, default = 1e-3)
+    parser.add_argument('kl_lr', nargs = '?', help='Learning rate for KL-based loss minimisation', type=float, default = 1e-2)
+    parser.add_argument('recon_mom', nargs = '?', help='Momentum for reconstruction phase', type=float, default = 0.9)
+    parser.add_argument('kl_mom', nargs = '?', help='Momentum for KL-based loss phase', type=float, default = 0.9)
+    parser.add_argument('recon_epochs', nargs = '?', help='Number of epochs for reconstruction phase', type=float, default = 500)
+    parser.add_argument('kl_epochs', nargs = '?', help='Number of epochs for kl-loss phase', type=float, default = 500)
 
-    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_100_2_200_2_1_5_10.h5', N, 'dpp_1') 
+    parser.add_argument('batch_size', nargs = '?', help='Batch size', type=int, default = 100)
+    parser.add_argument('minibatch_size', nargs = '?', help='Minibatch size', type=int, default = 10)
+    parser.add_argument('num_samples_mc', nargs = '?', help='#samples to use for loss estimation', type=int, default = 100)
+    args = parser.parse_args()
+
+    torch.manual_seed(args.torch_seed)
+
+    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_100_2_200_2_1_5_10.h5', args.N, 'dpp_1') 
     
     dpp = DPP(qualities, features)
  
-    x_mat = torch.rand(100, N)
-
-    args = {'recon_lr': 1e-3,  'kl_lr' : 1e-2,  'recon_mom' : 0.9,  'kl_mom' : 0.9, 'recon_epochs' : 1000, 'kl_epochs' : 1000, 'minibatch_size' : 100,  'num_samples_mc' : 100}
+    print args.batch_size, args.N
+    x_mat = torch.rand(args.batch_size, args.N)
 
     training(x_mat, dpp, args)

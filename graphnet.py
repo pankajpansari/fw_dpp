@@ -64,6 +64,7 @@ class GraphConv(nn.Module):
         temp = edge_feat.repeat(batch_size, 1, 1, 1) 
         augmented_edge_feat = torch.cat((bias, temp), 1) 
 
+        adjacency = adjacency.repeat(batch_size, 1, 1)
         mu = Variable(torch.zeros(batch_size, self.p, n_node))
 
         for layer in self.layers:
