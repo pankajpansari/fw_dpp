@@ -19,6 +19,7 @@ import torch.nn.init as init
 import itertools
 import argparse
 from dpp_objective import DPP 
+from variance import variance_estimate
 
 wdir = '/home/pankaj/Sampling/data/working/07_09_2018'
 #Reconstruction loss
@@ -166,6 +167,15 @@ def training(x_mat, dpp, args):
     torch.save(net.state_dict(), file_prefix + '_net.dat')
     f.close()
 
+    nsamples_list = [1, 5, 10, 20, 50, 100]
+
+    x_copy = x_mat.detach()
+
+    output = net(x_copy, adjacency, node_feat, edge_feat).detach()
+    for nsample in nsamples_list:
+        print nsample, variance_estimate(x_mat, output, dpp, nsample)
+        print nsample, variance_estimate(x_mat, x_mat, dpp, nsample)
+
 if  __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Training network using estimated forward KL-based loss for DPPs')
@@ -175,8 +185,8 @@ if  __name__ == '__main__':
     parser.add_argument('kl_lr', nargs = '?', help='Learning rate for KL-based loss minimisation', type=float, default = 1e-2)
     parser.add_argument('recon_mom', nargs = '?', help='Momentum for reconstruction phase', type=float, default = 0.9)
     parser.add_argument('kl_mom', nargs = '?', help='Momentum for KL-based loss phase', type=float, default = 0.9)
-    parser.add_argument('recon_epochs', nargs = '?', help='Number of epochs for reconstruction phase', type=float, default = 50)
-    parser.add_argument('kl_epochs', nargs = '?', help='Number of epochs for kl-loss phase', type=float, default = 50)
+    parser.add_argument('recon_epochs', nargs = '?', help='Number of epochs for reconstruction phase', type=float, default = 20)
+    parser.add_argument('kl_epochs', nargs = '?', help='Number of epochs for kl-loss phase', type=float, default = 20)
 
     parser.add_argument('batch_size', nargs = '?', help='Batch size', type=int, default = 100)
     parser.add_argument('minibatch_size', nargs = '?', help='Minibatch size', type=int, default = 10)
