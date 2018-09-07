@@ -119,8 +119,7 @@ def training(x_mat, dpp, args):
     #log file
     args_list = [args.recon_lr, args.kl_lr, args.recon_mom, args.kl_mom, args.num_samples_mc]
     file_prefix = wdir + '/dpp_' + '_'.join([str(x) for x in args_list])
-    f = open(file_prefix + '_training_log.txt', 'w')
-    f2 = open(file_prefix + '_training_log2.txt', 'w')
+    f = open(file_prefix + '_training_log2.txt', 'w')
 
 #    optimizer = optim.SGD(net.parameters(), lr=args['recon_lr'], momentum = args['recon_mom'])
     optimizer = optim.Adam(net.parameters(), lr=args.recon_lr)
@@ -135,7 +134,7 @@ def training(x_mat, dpp, args):
         loss = reconstruction_loss(minibatch, output)
         to_print =  [epoch, round(loss.item(), 3), round(time.time() - start1, 1)]
         print "Epoch: ", to_print[0], "       loss (reconstruction) = ", to_print[1] 
-        f2.write(' '.join([str(x) for x in to_print]) + '\n')
+        f.write(' '.join([str(x) for x in to_print]) + '\n')
         loss.backward()
         optimizer.step()    # Does the update
 
@@ -162,11 +161,10 @@ def training(x_mat, dpp, args):
         else:
             print "Epoch: ", to_print[0], "       loss (kl) = ", to_print[1] 
 
-        f2.write(' '.join([str(x) for x in to_print]) + '\n')
+        f.write(' '.join([str(x) for x in to_print]) + '\n')
 
     torch.save(net.state_dict(), file_prefix + '_net.dat')
     f.close()
-    f2.close()
 
 if  __name__ == '__main__':
 

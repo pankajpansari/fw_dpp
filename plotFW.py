@@ -62,15 +62,6 @@ def linePlotShow(x):
 #     plt.xlim([-1, 1])
      plt.show()
 
-def linePlotSave(x, filename):
-     plt.plot(x, linestyle='-') 
-     plt.xlabel('Iterations')
-     plt.ylabel('Obj function val')
-#     plt.ylim([0, 100])
-#     plt.axhline(y[0], linewidth=2, color = 'b')
-#     plt.xlim([-1, 1])
-     plt.savefig(filename)
-
 def difference(a):
      b = a[a[:, 0] == 0].shape[0]
      diff = np.zeros(b)
@@ -411,25 +402,61 @@ def parse_timing():
                 c.append(np.mean(b))
             e.append(np.mean(c))
         print e
- 
+
+def linePlotSave(x, filename):
+     plt.plot(x, linestyle='-') 
+     plt.xlabel('Iterations')
+     plt.ylabel('Obj function val')
+#     plt.ylim([0, 100])
+#     plt.axhline(y[0], linewidth=2, color = 'b')
+#     plt.xlim([-1, 1])
+     plt.savefig(filename)
+     plt.clf()
+
+
 # Gather our code in a main() function
 def main():
-     filename = '/home/pankaj/Sampling/data/input/social_graphs/N_512/fw_log/' + sys.argv[1]
-     save_filename = sys.argv[2]
+     filename = '/home/pankaj/Sampling/data/working/07_09_2018/' + sys.argv[1]
+     save_filename = '/home/pankaj/Sampling/data/working/07_09_2018/' + sys.argv[2]
      f = open(filename, 'r')
      val = []
+     temp = -1
      for line in f:
-	print line
  	a = line.split(' ')
-	val.append(float(a[1]))
+        if int(a[0]) > temp:
+            temp = int(a[0])
+            val.append(float(a[1]))
+        else: 
+            break
+
      linePlotSave(val, save_filename)
+     plt.plot(val, linestyle='-') 
+     plt.xlabel('Iterations')
+     plt.ylabel('L2 reconstruction objective')
+     plt.savefig(save_filename)
+     plt.clf()
+
+
+     val = []
+     save_filename = '/home/pankaj/Sampling/data/working/07_09_2018/' + sys.argv[3]
+     for line in f:
+ 	a = line.split(' ')
+        val.append(float(a[1]))
+
+     linePlotSave(val, save_filename)
+     plt.plot(val, linestyle='-') 
+     plt.xlabel('Iterations')
+     plt.ylabel('Kl-based objective')
+     plt.savefig(save_filename)
+     plt.clf()
+
 
 if __name__ == '__main__':
-#    main()
+    main()
 #    plot_iterates_hist()
 #    plot_email_solution_variance()
-    k = sys.argv[1]
-    plot_DPP_solution_variance_ratio(k)
+#    k = sys.argv[1]
+#    plot_DPP_solution_variance_ratio(k)
 #    plot_email_obj()
 #    plot_facebook_obj()
 #    parse_DPP_greedy()
