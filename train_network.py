@@ -20,6 +20,7 @@ import itertools
 import argparse
 from dpp_objective import DPP 
 
+wdir = '/home/pankaj/Sampling/data/working/07_09_2018'
 #Reconstruction loss
 def reconstruction_loss(p, q):
     #Reconstruction loss - L2 difference between input (p) and proposal (q)
@@ -93,14 +94,11 @@ def training(x_mat, dpp, args):
     net = MyNet(10)
 
     net.zero_grad()
-#    optimizer = optim.SGD(net.parameters(), lr=args['recon_lr'], momentum = args['recon_mom'])
-    optimizer = optim.Adam(net.parameters(), lr=args.recon_lr)
 
     batch_size = int(x_mat.shape[0]) 
 
     #Quality and feature vector as node_feat
     node_feat = torch.unsqueeze(dpp.qualities, 0)
-#    node_feat = node_feat.repeat(batch_size, 1, 1) 
 
     #Concatenated feature vectors and qualities + dot product
     edge_feat = torch.zeros(1, dpp.N, dpp.N)
@@ -118,13 +116,26 @@ def training(x_mat, dpp, args):
     idx = torch.arange(0, dpp.N, out = torch.LongTensor())
     adjacency[idx, idx] = 0
 
+    #log file
+    args_list = [args.recon_lr, args.kl_lr, args.recon_mom, args.kl_mom, args.num_samples_mc]
+    file_prefix = wdir + '/dpp_' + '_'.join([str(x) for x in args_list])
+    f = open(file_prefix + '_training_log.txt', 'w')
+    f2 = open(file_prefix + '_training_log2.txt', 'w')
+
+#    optimizer = optim.SGD(net.parameters(), lr=args['recon_lr'], momentum = args['recon_mom'])
+    optimizer = optim.Adam(net.parameters(), lr=args.recon_lr)
+
+    start1 = time.time()
+
     for epoch in range(args.recon_epochs):
         optimizer.zero_grad()   # zero the gradient buffers
         ind = torch.randperm(batch_size)[0:args.minibatch_size]
         minibatch = x_mat[ind]
         output = net(minibatch, adjacency, node_feat, edge_feat) 
         loss = reconstruction_loss(minibatch, output)
-        print "Epoch: ", epoch, "       loss (l2 reconstruction) = ", loss.data.numpy()
+        to_print =  [epoch, round(loss.item(), 3), round(time.time() - start1, 1)]
+        print "Epoch: ", to_print[0], "       loss (reconstruction) = ", to_print[1] 
+        f2.write(' '.join([str(x) for x in to_print]) + '\n')
         loss.backward()
         optimizer.step()    # Does the update
 
@@ -141,10 +152,21 @@ def training(x_mat, dpp, args):
         loss.backward()
         optimizer2.step()    # Does the update
         if epoch % 20 == 0:
-            accurate_loss = kl_loss_forward(minibatch, output, dpp, 10000)
-            print "Epoch: ", epoch, "       accurate loss (kl) = ", accurate_loss.item()
+            accurate_loss = kl_loss_forward(minibatch, output, dpp, 1000)
+            temp = accurate_loss.item()
         else:
-            print "Epoch: ", epoch, "       loss (kl) = ", loss.item()
+            temp = loss.item()
+        to_print =  [epoch, round(temp, 3), round(time.time() - start1, 1)]
+        if epoch% 20 == 0:
+            print "Epoch: ", to_print[0], "       accurate loss (kl) = ", to_print[1] 
+        else:
+            print "Epoch: ", to_print[0], "       loss (kl) = ", to_print[1] 
+
+        f2.write(' '.join([str(x) for x in to_print]) + '\n')
+
+    torch.save(net.state_dict(), file_prefix + '_net.dat')
+    f.close()
+    f2.close()
 
 if  __name__ == '__main__':
 
@@ -155,8 +177,8 @@ if  __name__ == '__main__':
     parser.add_argument('kl_lr', nargs = '?', help='Learning rate for KL-based loss minimisation', type=float, default = 1e-2)
     parser.add_argument('recon_mom', nargs = '?', help='Momentum for reconstruction phase', type=float, default = 0.9)
     parser.add_argument('kl_mom', nargs = '?', help='Momentum for KL-based loss phase', type=float, default = 0.9)
-    parser.add_argument('recon_epochs', nargs = '?', help='Number of epochs for reconstruction phase', type=float, default = 500)
-    parser.add_argument('kl_epochs', nargs = '?', help='Number of epochs for kl-loss phase', type=float, default = 500)
+    parser.add_argument('recon_epochs', nargs = '?', help='Number of epochs for reconstruction phase', type=float, default = 50)
+    parser.add_argument('kl_epochs', nargs = '?', help='Number of epochs for kl-loss phase', type=float, default = 50)
 
     parser.add_argument('batch_size', nargs = '?', help='Batch size', type=int, default = 100)
     parser.add_argument('minibatch_size', nargs = '?', help='Minibatch size', type=int, default = 10)
@@ -169,7 +191,6 @@ if  __name__ == '__main__':
     
     dpp = DPP(qualities, features)
  
-    print args.batch_size, args.N
     x_mat = torch.rand(args.batch_size, args.N)
 
     training(x_mat, dpp, args)
