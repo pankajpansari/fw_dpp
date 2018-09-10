@@ -102,7 +102,7 @@ def kl_loss_forward(x_mat, q_mat, dpp, nsamples):
 #Two phase training - reconstruction loss and then KL loss
 def training(x_mat, dpp, args):
 
-    net = MyNet(10)
+    net = MyNet(args.k)
 
     net.zero_grad()
 
@@ -221,7 +221,9 @@ if  __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Training network using estimated forward KL-based loss for DPPs')
     parser.add_argument('torch_seed', nargs = '?', help='Random seed for torch', type=int, default = 123)
+    parser.add_argument('dpp_id', nargs = '?', help='id of DPP', type=int, default = 1)
     parser.add_argument('N', nargs = '?', help='# of items in DPP', type=int, default = 100)
+    parser.add_argument('k', nargs = '?', help='cardinality constraint', type=int, default = 10)
     parser.add_argument('recon_lr', nargs = '?', help='Learning rate for reconstruction phase', type=float, default = 1e-3)
     parser.add_argument('kl_lr', nargs = '?', help='Learning rate for KL-based loss minimisation', type=float, default = 1e-2)
     parser.add_argument('recon_mom', nargs = '?', help='Momentum for reconstruction phase', type=float, default = 0.9)
@@ -236,7 +238,7 @@ if  __name__ == '__main__':
 
     torch.manual_seed(args.torch_seed)
 
-    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_100_2_200_2_1_5_10.h5', args.N, 'dpp_1') 
+    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_100_2_200_2_1_5_10.h5', args.N, 'dpp_' + str(args.dpp_id)) 
     
     dpp = DPP(qualities, features)
  
@@ -246,7 +248,7 @@ if  __name__ == '__main__':
 
     x_val_mat = torch.rand(args.batch_size, args.N)
 
-    net = MyNet(10)
+    net = MyNet(args.k)
     args_list = [args.recon_lr, args.kl_lr, args.recon_mom, args.kl_mom, args.num_samples_mc]
     file_prefix = wdir + '/dpp_' + '_'.join([str(x) for x in args_list])
     temp = torch.load(file_prefix + '_net.dat')
