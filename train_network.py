@@ -21,7 +21,7 @@ import argparse
 from dpp_objective import DPP 
 from variance import variance_estimate
 
-wdir = '/home/pankaj/Sampling/data/working/10_09_2018/'
+wdir = './workspace/'
 
 def write_to_file(f, val_list):
     f.write(' '.join([str(round(x, 3)) for x in val_list]) + '\n')
@@ -128,7 +128,7 @@ def training(x_mat, dpp, args):
     adjacency[idx, idx] = 0
 
     #log file
-    args_list = [args.recon_lr, args.kl_lr, args.recon_mom, args.kl_mom, args.num_samples_mc]
+    args_list = [args.dpp_id, args.k, args.recon_lr, args.kl_lr, args.recon_mom, args.kl_mom, args.num_samples_mc, args.minibatch_size]
     file_prefix = wdir + '/dpp_' + '_'.join([str(x) for x in args_list])
     f = open(file_prefix + '_training_log.txt', 'w')
 
@@ -199,8 +199,7 @@ def testing(net, x_mat, dpp, filename):
     idx = torch.arange(0, dpp.N, out = torch.LongTensor())
     adjacency[idx, idx] = 0
 
-#    nsamples_list = [1, 5, 10, 20, 50, 100]
-    nsamples_list = [1, 5]
+    nsamples_list = [1, 5, 10, 20, 50, 100]
 
     x_copy = x_mat.detach()
     f = open(filename, 'w')
@@ -228,8 +227,8 @@ if  __name__ == '__main__':
     parser.add_argument('kl_lr', nargs = '?', help='Learning rate for KL-based loss minimisation', type=float, default = 1e-2)
     parser.add_argument('recon_mom', nargs = '?', help='Momentum for reconstruction phase', type=float, default = 0.9)
     parser.add_argument('kl_mom', nargs = '?', help='Momentum for KL-based loss phase', type=float, default = 0.9)
-    parser.add_argument('recon_epochs', nargs = '?', help='Number of epochs for reconstruction phase', type=float, default = 20)
-    parser.add_argument('kl_epochs', nargs = '?', help='Number of epochs for kl-loss phase', type=float, default = 20)
+    parser.add_argument('recon_epochs', nargs = '?', help='Number of epochs for reconstruction phase', type=int, default = 20)
+    parser.add_argument('kl_epochs', nargs = '?', help='Number of epochs for kl-loss phase', type=int, default = 20)
 
     parser.add_argument('batch_size', nargs = '?', help='Batch size', type=int, default = 100)
     parser.add_argument('minibatch_size', nargs = '?', help='Minibatch size', type=int, default = 10)
@@ -249,7 +248,7 @@ if  __name__ == '__main__':
     x_val_mat = torch.rand(args.batch_size, args.N)
 
     net = MyNet(args.k)
-    args_list = [args.recon_lr, args.kl_lr, args.recon_mom, args.kl_mom, args.num_samples_mc]
+    args_list = [args.dpp_id, args.k, args.recon_lr, args.kl_lr, args.recon_mom, args.kl_mom, args.num_samples_mc, args.minibatch_size]
     file_prefix = wdir + '/dpp_' + '_'.join([str(x) for x in args_list])
     temp = torch.load(file_prefix + '_net.dat')
     net.load_state_dict(temp)
