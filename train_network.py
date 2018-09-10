@@ -21,7 +21,7 @@ import argparse
 from dpp_objective import DPP 
 from variance import variance_estimate
 
-wdir = '/home/pankaj/Sampling/data/working/07_09_2018'
+wdir = '/home/pankaj/Sampling/data/working/10_09_2018'
 #Reconstruction loss
 def reconstruction_loss(p, q):
     #Reconstruction loss - L2 difference between input (p) and proposal (q)
@@ -120,7 +120,7 @@ def training(x_mat, dpp, args):
     #log file
     args_list = [args.recon_lr, args.kl_lr, args.recon_mom, args.kl_mom, args.num_samples_mc]
     file_prefix = wdir + '/dpp_' + '_'.join([str(x) for x in args_list])
-    f = open(file_prefix + '_training_log2.txt', 'w')
+    f = open(file_prefix + '_training_log.txt', 'w')
 
 #    optimizer = optim.SGD(net.parameters(), lr=args['recon_lr'], momentum = args['recon_mom'])
     optimizer = optim.Adam(net.parameters(), lr=args.recon_lr)
@@ -170,11 +170,15 @@ def training(x_mat, dpp, args):
     nsamples_list = [1, 5, 10, 20, 50, 100]
 
     x_copy = x_mat.detach()
+    f = open(file_prefix + '_variance.txt', 'w')
 
     output = net(x_copy, adjacency, node_feat, edge_feat).detach()
+
     for nsample in nsamples_list:
-        print nsample, variance_estimate(x_mat, output, dpp, nsample)
-        print nsample, variance_estimate(x_mat, x_mat, dpp, nsample)
+        no_proposal_var = round(variance_estimate(x_mat, x_mat, dpp, nsample), 3)
+        net_proposal_var = round(variance_estimate(x_mat, output, dpp, nsample), 3)
+        f.write(str(nsample) + ' ' + str(no_proposal_var) + ' ' + str(net_proposal_var) + '\n')
+        print '#samples = ', nsample, ' original variance = ', no_proposal_var, '  variance with learned proposals = ', net_proposal_var 
 
 if  __name__ == '__main__':
 
