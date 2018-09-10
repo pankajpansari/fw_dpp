@@ -22,6 +22,16 @@ from dpp_objective import DPP
 from variance import variance_estimate
 
 wdir = '/home/pankaj/Sampling/data/working/10_09_2018'
+
+def write_to_file(f, val_list):
+    f.write(' '.join([str(round(x, 3)) for x in val_list]) + '\n')
+
+def print_list(text_list, val_list):
+    temp = list(zip(text_list, val_list))
+    for (a, b) in temp:
+        print a, ': ', str(b), '    ',
+    print
+
 #Reconstruction loss
 def reconstruction_loss(p, q):
     #Reconstruction loss - L2 difference between input (p) and proposal (q)
@@ -177,8 +187,12 @@ def training(x_mat, dpp, args):
     for nsample in nsamples_list:
         no_proposal_var = round(variance_estimate(x_mat, x_mat, dpp, nsample), 3)
         net_proposal_var = round(variance_estimate(x_mat, output, dpp, nsample), 3)
-        f.write(str(nsample) + ' ' + str(no_proposal_var) + ' ' + str(net_proposal_var) + '\n')
-        print '#samples = ', nsample, ' original variance = ', no_proposal_var, '  variance with learned proposals = ', net_proposal_var 
+        param_list = [nsample, no_proposal_var, net_proposal_var]
+        text_list = ['#samples', 'original variance', 'variance with learned proposals']
+        write_to_file(f, param_list)
+        print_list(text_list, param_list)
+
+    f.close()
 
 if  __name__ == '__main__':
 
