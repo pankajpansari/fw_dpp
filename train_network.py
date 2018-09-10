@@ -21,7 +21,7 @@ import argparse
 from dpp_objective import DPP 
 from variance import variance_estimate
 
-wdir = '/home/pankaj/Sampling/data/working/10_09_2018'
+wdir = '/home/pankaj/Sampling/data/working/10_09_2018/'
 
 def write_to_file(f, val_list):
     f.write(' '.join([str(round(x, 3)) for x in val_list]) + '\n')
@@ -175,12 +175,35 @@ def training(x_mat, dpp, args):
         f.write(' '.join([str(x) for x in to_print]) + '\n')
 
     torch.save(net.state_dict(), file_prefix + '_net.dat')
+    testing(net, x_mat, dpp, file_prefix + '_train_variance.txt')
     f.close()
 
-    nsamples_list = [1, 5, 10, 20, 50, 100]
+def testing(net, x_mat, dpp, filename):
+
+    #Quality and feature vector as node_feat
+    node_feat = torch.unsqueeze(dpp.qualities, 0)
+
+    #Concatenated feature vectors and qualities + dot product
+    edge_feat = torch.zeros(1, dpp.N, dpp.N)
+
+    for i in range(dpp.N):
+        for j in range(dpp.N):
+            feat_i = dpp.features[:, i]
+            feat_j = dpp.features[:, j]
+            quality_term = (dpp.qualities[i]*dpp.qualities[j])**2
+            diversity_term = 1 - (feat_i.dot(feat_j))**2
+            edge_feat[0, i, j] = quality_term * diversity_term 
+
+    #Fully-connected graph with diagonal elements 0
+    adjacency = torch.ones(dpp.N, dpp.N) 
+    idx = torch.arange(0, dpp.N, out = torch.LongTensor())
+    adjacency[idx, idx] = 0
+
+#    nsamples_list = [1, 5, 10, 20, 50, 100]
+    nsamples_list = [1, 5]
 
     x_copy = x_mat.detach()
-    f = open(file_prefix + '_variance.txt', 'w')
+    f = open(filename, 'w')
 
     output = net(x_copy, adjacency, node_feat, edge_feat).detach()
 
@@ -220,3 +243,13 @@ if  __name__ == '__main__':
     x_mat = torch.rand(args.batch_size, args.N)
 
     training(x_mat, dpp, args)
+
+    x_val_mat = torch.rand(args.batch_size, args.N)
+
+    net = MyNet(10)
+    args_list = [args.recon_lr, args.kl_lr, args.recon_mom, args.kl_mom, args.num_samples_mc]
+    file_prefix = wdir + '/dpp_' + '_'.join([str(x) for x in args_list])
+    temp = torch.load(file_prefix + '_net.dat')
+    net.load_state_dict(temp)
+    testing(net, x_val_mat, dpp, file_prefix + '_test_variance.txt')
+
