@@ -96,7 +96,7 @@ def kl_loss_forward(x_mat, q_mat, dpp, nsamples):
 
         kl_value.append(torch.sum(-f_val*log_prob_q))
     
-    return sum(kl_value)/(batch_size*nsamples)
+    return sum(kl_value)/(nsamples)
 
 #Training function 
 #Two phase training - reconstruction loss and then KL loss
@@ -128,7 +128,7 @@ def training(x_mat, dpp, args):
     adjacency[idx, idx] = 0
 
     #log file
-    args_list = [args.dpp_id, args.k, args.recon_lr, args.kl_lr, args.recon_mom, args.kl_mom, args.num_samples_mc, args.minibatch_size]
+    args_list = [args.dpp_id, args.k, args.recon_lr, args.kl_lr, args.recon_mom, args.kl_mom, args.recon_epochs, args.kl_epochs, args.batch_size, args.minibatch_size, args.num_samples_mc]
     file_prefix = wdir + '/dpp_' + '_'.join([str(x) for x in args_list])
     f = open(file_prefix + '_training_log.txt', 'w')
 
@@ -150,10 +150,15 @@ def training(x_mat, dpp, args):
         loss.backward()
         optimizer.step()    # Does the update
 
-    sys.exit()
+    torch.save(net.state_dict(), file_prefix + '_recon_net.dat')
+
+#    temp = torch.load(file_prefix + '_recon_net.dat')
+#    net.load_state_dict(temp)
+
     net.zero_grad()
 
-    optimizer2 = optim.SGD(net.parameters(), lr=args.kl_lr, momentum = args.kl_mom)
+    optimizer2 = optim.Adam(net.parameters(), lr=args.kl_lr)
+#    optimizer2 = optim.SGD(net.parameters(), lr=args.kl_lr, momentum = args.kl_mom)
 
     for epoch in range(args.kl_epochs):
         optimizer2.zero_grad()   # zero the gradient buffers
@@ -162,13 +167,15 @@ def training(x_mat, dpp, args):
         minibatch = x_mat
         output = net(minibatch, adjacency, node_feat, edge_feat) 
         loss = kl_loss_forward(minibatch, output, dpp, args.num_samples_mc)
+        avg_loss = loss.detach().sum()/args.minibatch_size
         loss.backward()
         optimizer2.step()    # Does the update
+
         if epoch % 20 == 0:
             accurate_loss = kl_loss_forward(minibatch, output, dpp, 1000)
-            temp = accurate_loss.item()
+            temp = accurate_loss.detach().sum().item()/args.minibatch_size
         else:
-            temp = loss.item()
+            temp = avg_loss.item()
         to_print =  [epoch, round(temp, 3), round(time.time() - start1, 1)]
         if epoch% 20 == 0:
             print "Epoch: ", to_print[0], "       accurate loss (kl) = ", to_print[1] 
@@ -177,9 +184,9 @@ def training(x_mat, dpp, args):
 
         f.write(' '.join([str(x) for x in to_print]) + '\n')
 
-    torch.save(net.state_dict(), file_prefix + '_net.dat')
-    testing(net, x_mat, dpp, file_prefix + '_train_variance.txt')
     f.close()
+    torch.save(net.state_dict(), file_prefix + '_net.dat')
+#    testing(net, x_mat, dpp, file_prefix + '_train_variance.txt')
 
 def testing(net, x_mat, dpp, filename):
 
@@ -222,14 +229,6 @@ def testing(net, x_mat, dpp, filename):
 
 if  __name__ == '__main__':
 
-#    input = torch.rand(4, 3, requires_grad = False)
-#    output = torch.rand(4, 3, requires_grad = True)
-#    l2_loss = reconstruction_loss(input, output)
-#    l2_loss.backward()
-#    print output.grad 
-#    print 2*(output - input)
-#    sys.exit()
-#
     parser = argparse.ArgumentParser(description='Training network using estimated forward KL-based loss for DPPs')
     parser.add_argument('torch_seed', nargs = '?', help='Random seed for torch', type=int, default = 123)
     parser.add_argument('dpp_id', nargs = '?', help='id of DPP', type=int, default = 1)
@@ -260,7 +259,7 @@ if  __name__ == '__main__':
     x_val_mat = torch.rand(args.batch_size, args.N)
 
     net = MyNet(args.k)
-    args_list = [args.dpp_id, args.k, args.recon_lr, args.kl_lr, args.recon_mom, args.kl_mom, args.num_samples_mc, args.minibatch_size]
+    args_list = [args.dpp_id, args.k, args.recon_lr, args.kl_lr, args.recon_mom, args.kl_mom, args.recon_epochs, args.kl_epochs, args.batch_size, args.minibatch_size, args.num_samples_mc]
     file_prefix = wdir + '/dpp_' + '_'.join([str(x) for x in args_list])
     temp = torch.load(file_prefix + '_net.dat')
     net.load_state_dict(temp)

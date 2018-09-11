@@ -413,11 +413,21 @@ def linePlotSave(x, filename):
      plt.savefig(filename)
      plt.clf()
 
+def plotRelaxationVariance(filename, save_filename):
+    a = np.loadtxt(filename)
+    plt.plot(a[:, 0], a[:, 1], 'r-', label = 'original proposal') 
+    plt.plot(a[:, 0], a[:, 2], 'b-', label = 'learned proposal') 
+    plt.axes().set_xticks(a[:, 0])
+    plt.xlabel('#samples for estimating relaxation')
+    plt.ylabel('Variance')
+    plt.title('Variance reduction (if any) of relaxation by importance sampling')
+    plt.legend()
+    plt.savefig(save_filename)
 
 # Gather our code in a main() function
 def main():
-     filename = '/home/pankaj/Sampling/data/working/07_09_2018/' + sys.argv[1]
-     save_filename = '/home/pankaj/Sampling/data/working/07_09_2018/' + sys.argv[2]
+     filename = sys.argv[1]
+     save_filename = sys.argv[2]
      f = open(filename, 'r')
      val = []
      temp = -1
@@ -438,7 +448,7 @@ def main():
 
 
      val = []
-     save_filename = '/home/pankaj/Sampling/data/working/07_09_2018/' + sys.argv[3]
+     save_filename = sys.argv[3]
      for line in f:
  	a = line.split(' ')
         val.append(float(a[1]))
@@ -452,11 +462,6 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
-#    plot_iterates_hist()
-#    plot_email_solution_variance()
-#    k = sys.argv[1]
-#    plot_DPP_solution_variance_ratio(k)
-#    plot_email_obj()
-#    plot_facebook_obj()
-#    parse_DPP_greedy()
+    plotRelaxationVariance(sys.argv[1], sys.argv[2])
+#    main()
+
