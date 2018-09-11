@@ -38,7 +38,7 @@ def reconstruction_loss(p, q):
     batch_size = p.size()[0]
     temp = p - q
     l2_norms = torch.norm(temp, 2, 1)
-    return ((l2_norms**2).sum())/batch_size
+    return ((l2_norms**2).sum())
 
 def kl_loss_exact_forward(x, q, dpp):
 
@@ -132,7 +132,7 @@ def training(x_mat, dpp, args):
     file_prefix = wdir + '/dpp_' + '_'.join([str(x) for x in args_list])
     f = open(file_prefix + '_training_log.txt', 'w')
 
-#    optimizer = optim.SGD(net.parameters(), lr=args['recon_lr'], momentum = args['recon_mom'])
+#    optimizer = optim.SGD(net.parameters(), lr=args.recon_lr, momentum = args.recon_mom)
     optimizer = optim.Adam(net.parameters(), lr=args.recon_lr)
 
     start1 = time.time()
@@ -143,20 +143,23 @@ def training(x_mat, dpp, args):
         minibatch = x_mat[ind]
         output = net(minibatch, adjacency, node_feat, edge_feat) 
         loss = reconstruction_loss(minibatch, output)
-        to_print =  [epoch, round(loss.item(), 3), round(time.time() - start1, 1)]
+        avg_loss = loss.detach().sum()/args.minibatch_size
+        to_print =  [epoch, round(avg_loss.item(), 3), round(time.time() - start1, 1)]
         print "Epoch: ", to_print[0], "       loss (reconstruction) = ", to_print[1] 
         f.write(' '.join([str(x) for x in to_print]) + '\n')
         loss.backward()
         optimizer.step()    # Does the update
 
+    sys.exit()
     net.zero_grad()
 
     optimizer2 = optim.SGD(net.parameters(), lr=args.kl_lr, momentum = args.kl_mom)
 
     for epoch in range(args.kl_epochs):
         optimizer2.zero_grad()   # zero the gradient buffers
-        ind = torch.randperm(batch_size)[0:args.minibatch_size]
-        minibatch = x_mat[ind]
+#        ind = torch.randperm(batch_size)[0:args.minibatch_size]
+#        minibatch = x_mat[ind]
+        minibatch = x_mat
         output = net(minibatch, adjacency, node_feat, edge_feat) 
         loss = kl_loss_forward(minibatch, output, dpp, args.num_samples_mc)
         loss.backward()
@@ -216,8 +219,17 @@ def testing(net, x_mat, dpp, filename):
 
     f.close()
 
+
 if  __name__ == '__main__':
 
+#    input = torch.rand(4, 3, requires_grad = False)
+#    output = torch.rand(4, 3, requires_grad = True)
+#    l2_loss = reconstruction_loss(input, output)
+#    l2_loss.backward()
+#    print output.grad 
+#    print 2*(output - input)
+#    sys.exit()
+#
     parser = argparse.ArgumentParser(description='Training network using estimated forward KL-based loss for DPPs')
     parser.add_argument('torch_seed', nargs = '?', help='Random seed for torch', type=int, default = 123)
     parser.add_argument('dpp_id', nargs = '?', help='id of DPP', type=int, default = 1)
