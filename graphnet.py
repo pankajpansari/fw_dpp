@@ -10,7 +10,7 @@ class GraphConvLayer(nn.Module):
         self.p = p
         self.w_std = w_std
 
-        self.num_node_feat = 3 
+        self.num_node_feat = 4 
         self.num_edge_feat = 2 
         self.t1 = nn.Parameter(torch.Tensor(self.p, self.num_node_feat))
         self.t2 = nn.Parameter(torch.Tensor(self.p, self.p))

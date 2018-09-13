@@ -162,9 +162,8 @@ def training(x_mat, dpp, args):
 
     for epoch in range(args.kl_epochs):
         optimizer2.zero_grad()   # zero the gradient buffers
-#        ind = torch.randperm(batch_size)[0:args.minibatch_size]
-#        minibatch = x_mat[ind]
-        minibatch = x_mat
+        ind = torch.randperm(batch_size)[0:args.minibatch_size]
+        minibatch = x_mat[ind]
         output = net(minibatch, adjacency, node_feat, edge_feat) 
         loss = kl_loss_forward(minibatch, output, dpp, args.num_samples_mc)
         avg_loss = loss.detach().sum()/args.minibatch_size
