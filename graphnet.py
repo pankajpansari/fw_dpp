@@ -10,7 +10,7 @@ class GraphConvLayer(nn.Module):
         self.p = p
         self.w_std = w_std
 
-        self.num_node_feat = 4 
+        self.num_node_feat = 5 
         self.num_edge_feat = 2 
         self.t1 = nn.Parameter(torch.Tensor(self.p, self.num_node_feat))
         self.t2 = nn.Parameter(torch.Tensor(self.p, self.p))
@@ -56,8 +56,9 @@ class GraphConv(nn.Module):
         #Add bias and x to node features
         to_stack = []
         bias = torch.ones(batch_size, 1, n_node)
+        neg_bias = -1*torch.ones(batch_size, 1, n_node)
         temp = node_feat.repeat(batch_size, 1, 1) 
-        augmented_node_feat = torch.cat((bias, torch.unsqueeze(x, 1), temp), 1) 
+        augmented_node_feat = torch.cat((bias, neg_bias, torch.unsqueeze(x, 1), temp), 1) 
 
         #Add bias to the edge features
         bias = torch.ones(batch_size, 1, n_node, n_node)
@@ -117,8 +118,8 @@ class MyNet(nn.Module):
         super(MyNet, self).__init__()
         
         n_layer = 3
-        p = 28
-        w_scale = 1e-4
+        p = 28 
+        w_scale = 1e-2
         self.conv = GraphConv(n_layer, p, w_scale)
         self.scorer = GraphScorer(p, w_scale, k)
 

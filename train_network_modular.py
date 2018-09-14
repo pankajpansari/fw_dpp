@@ -119,6 +119,43 @@ def kl_loss_forward(x_mat, q_mat, mod_obj,  nsamples):
     
     return sum(kl_value)/(nsamples)
 
+def kl_loss_exact_forward(x_mat, q_mat, mod_obj):
+
+    power_set = map(list, itertools.product([0, 1], repeat= x_mat.shape[1]))
+
+    batch_size = x_mat.size()[0]
+
+    kl_mat = []
+
+    for p in range(batch_size):
+
+        x = x_mat[p]
+        q = q_mat[p]
+
+        C = torch.Tensor([0])
+
+        kl_val = torch.Tensor([0])
+
+        for binary_vec in power_set:
+
+            sample = Variable(torch.from_numpy(np.array(binary_vec)).float())
+
+            f_val = torch.abs(set_fn(mod_obj, sample))
+
+            temp = x*sample + (1-x)*(1 - sample)
+            log_prob_x = torch.log(temp).sum()
+            prob_x = torch.prod(temp)
+
+            temp = q*sample + (1-q)*(1 - sample)
+            log_prob_q = torch.log(temp).sum()
+
+            log_term = torch.log(f_val) + log_prob_x - log_prob_q
+
+            C = torch.add(C, f_val*prob_x)
+            kl_val = torch.add(kl_val, prob_x*f_val*log_term)
+        kl_mat.append(kl_val/C - torch.log(C))
+    return sum(kl_mat)
+
 #Training function 
 #Two phase training - reconstruction loss and then KL loss
 def training(x_mat, mod_obj, args):
@@ -198,16 +235,8 @@ def training(x_mat, mod_obj, args):
         loss.backward()
         optimizer2.step()    # Does the update
 
-        if epoch % 20 == 0:
-            accurate_loss = kl_loss_forward(minibatch, output, mod_obj, 1000)
-            temp = accurate_loss.detach().sum().item()/args.minibatch_size
-        else:
-            temp = avg_loss.item()
-        to_print =  [epoch, round(temp, 3), round(time.time() - start1, 1)]
-        if epoch% 20 == 0:
-            print "Epoch: ", to_print[0], "       accurate loss (kl) = ", to_print[1]
-        else:
-            print "Epoch: ", to_print[0], "       loss (kl) = ", to_print[1]
+        to_print =  [epoch, round(avg_loss.item(), 3), round(time.time() - start1, 1)]
+        print "Epoch: ", to_print[0], "       loss (kl) = ", to_print[1]
 
         f.write(' '.join([str(x) for x in to_print]) + '\n')
 
@@ -224,26 +253,28 @@ if  __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Training network using estimated forward KL-based loss for modular functions')
     parser.add_argument('torch_seed', nargs = '?', help='Random seed for torch', type=int, default = 123)
     parser.add_argument('recon_lr', nargs = '?', help='Learning rate for reconstruction phase', type=float, default = 1e-3)
-    parser.add_argument('kl_lr', nargs = '?', help='Learning rate for KL-based loss minimisation', type=float, default = 1e-4)
+    parser.add_argument('kl_lr', nargs = '?', help='Learning rate for KL-based loss minimisation', type=float, default = 1e-3)
     parser.add_argument('recon_mom', nargs = '?', help='Momentum for reconstruction phase', type=float, default = 0.9)
     parser.add_argument('kl_mom', nargs = '?', help='Momentum for KL-based loss phase', type=float, default = 0.9)
     parser.add_argument('recon_epochs', nargs = '?', help='Number of epochs for reconstruction phase', type=int, default = 0)
-    parser.add_argument('kl_epochs', nargs = '?', help='Number of epochs for kl-loss phase', type=int, default = 1000)
+    parser.add_argument('kl_epochs', nargs = '?', help='Number of epochs for kl-loss phase', type=int, default = 800)
 
-    parser.add_argument('batch_size', nargs = '?', help='Batch size', type=int, default = 2)
-    parser.add_argument('minibatch_size', nargs = '?', help='Minibatch size', type=int, default = 2)
-    parser.add_argument('num_samples_mc', nargs = '?', help='#samples to use for loss estimation', type=int, default = 5000)
+    parser.add_argument('batch_size', nargs = '?', help='Batch size', type=int, default = 1)
+    parser.add_argument('minibatch_size', nargs = '?', help='Minibatch size', type=int, default = 1)
+    parser.add_argument('num_samples_mc', nargs = '?', help='#samples to use for loss estimation', type=int, default = 1000)
     args = parser.parse_args()
-    args.N = 30
+    args.N = 30 
     args.k = 5 
     torch.manual_seed(args.torch_seed)
 
     mod_obj = torch.zeros(2, args.N) 
-    mod_obj[0] = torch.rand(args.N) *0.5 + 0.25 
-    mod_obj[1] = torch.rand(args.N)*0.5 + 1
+    mod_obj[0] = torch.rand(args.N)*0.5 + 1
+    mod_obj[1] = torch.rand(args.N) *0.5 + 0.2 
 
     x_mat = torch.rand(args.batch_size, args.N)
 #    q_opt = optimal_proposal(mod_obj, x_mat)
+#    print "exact kl = ", kl_loss_exact_forward(x_mat, q_opt, mod_obj)
+#    sys.exit()
 #    print x_mat[0], q_opt[0]
 #    sys.exit()
     training(x_mat, mod_obj, args)
