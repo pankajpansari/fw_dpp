@@ -263,7 +263,7 @@ if  __name__ == '__main__':
     parser.add_argument('minibatch_size', nargs = '?', help='Minibatch size', type=int, default = 1)
     parser.add_argument('num_samples_mc', nargs = '?', help='#samples to use for loss estimation', type=int, default = 1000)
     args = parser.parse_args()
-    args.N = 30 
+    args.N = 10 
     args.k = 5 
     torch.manual_seed(args.torch_seed)
 
@@ -272,9 +272,15 @@ if  __name__ == '__main__':
     mod_obj[1] = torch.rand(args.N) *0.5 + 0.2 
 
     x_mat = torch.rand(args.batch_size, args.N)
-#    q_opt = optimal_proposal(mod_obj, x_mat)
+    start_t = time.time()
+    for t in range(100):
+        q_mat = torch.rand(args.batch_size, args.N)
+        kl_loss_exact_forward(x_mat, q_mat, mod_obj)
+    print "avg time = ", (time.time() - start_t)/100
+
+    #    q_opt = optimal_proposal(mod_obj, x_mat)
 #    print "exact kl = ", kl_loss_exact_forward(x_mat, q_opt, mod_obj)
 #    sys.exit()
 #    print x_mat[0], q_opt[0]
 #    sys.exit()
-    training(x_mat, mod_obj, args)
+#    training(x_mat, mod_obj, args)

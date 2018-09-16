@@ -170,11 +170,12 @@ def training(x_mat, dpp, args):
         loss.backward()
         optimizer2.step()    # Does the update
 
-        if epoch % 20 == 0:
-            accurate_loss = kl_loss_forward(minibatch, output, dpp, 1000)
-            temp = accurate_loss.detach().sum().item()/args.minibatch_size
-        else:
-            temp = avg_loss.item()
+#        if epoch % 20 == 0:
+#            accurate_loss = kl_loss_forward(minibatch, output, dpp, 1000)
+#            temp = accurate_loss.detach().sum().item()/args.minibatch_size
+#        else:
+#            temp = avg_loss.item()
+
         to_print =  [epoch, round(temp, 3), round(time.time() - start1, 1)]
         if epoch% 20 == 0:
             print "Epoch: ", to_print[0], "       accurate loss (kl) = ", to_print[1] 
@@ -231,7 +232,7 @@ if  __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Training network using estimated forward KL-based loss for DPPs')
     parser.add_argument('torch_seed', nargs = '?', help='Random seed for torch', type=int, default = 123)
     parser.add_argument('dpp_id', nargs = '?', help='id of DPP', type=int, default = 1)
-    parser.add_argument('N', nargs = '?', help='# of items in DPP', type=int, default = 100)
+    parser.add_argument('N', nargs = '?', help='# of items in DPP', type=int, default = 10)
     parser.add_argument('k', nargs = '?', help='cardinality constraint', type=int, default = 10)
     parser.add_argument('recon_lr', nargs = '?', help='Learning rate for reconstruction phase', type=float, default = 1e-3)
     parser.add_argument('kl_lr', nargs = '?', help='Learning rate for KL-based loss minimisation', type=float, default = 1e-2)
@@ -240,18 +241,37 @@ if  __name__ == '__main__':
     parser.add_argument('recon_epochs', nargs = '?', help='Number of epochs for reconstruction phase', type=int, default = 20)
     parser.add_argument('kl_epochs', nargs = '?', help='Number of epochs for kl-loss phase', type=int, default = 20)
 
-    parser.add_argument('batch_size', nargs = '?', help='Batch size', type=int, default = 100)
-    parser.add_argument('minibatch_size', nargs = '?', help='Minibatch size', type=int, default = 10)
+    parser.add_argument('batch_size', nargs = '?', help='Batch size', type=int, default = 1)
+    parser.add_argument('minibatch_size', nargs = '?', help='Minibatch size', type=int, default = 1)
     parser.add_argument('num_samples_mc', nargs = '?', help='#samples to use for loss estimation', type=int, default = 100)
     args = parser.parse_args()
 
     torch.manual_seed(args.torch_seed)
 
-    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_100_2_200_2_1_5_10.h5', args.N, 'dpp_' + str(args.dpp_id)) 
+#    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_100_2_200_2_1_5_10.h5', args.N, 'dpp_' + str(args.dpp_id)) 
+    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_10_2_20_2_1_5_2.h5', 10, 'dpp_1') 
     
     dpp = DPP(qualities, features)
  
     x_mat = torch.rand(args.batch_size, args.N)
+
+    start_t = time.time()
+    
+    best_kl = torch.Tensor([1e3])
+    x = x_mat[0]
+    for t in range(10000):
+        q = torch.rand(args.N)
+        kl_loss = kl_loss_exact_forward(x, q, dpp)
+        if kl_loss < best_kl:
+            print "best_kl: ", best_kl.item()
+            best_kl = kl_loss
+            best_q = q
+
+    torch.save(best_q, 'optimal_q_mc.pt')
+
+
+    print "total time = ", (time.time() - start_t)
+    sys.exit()
 
     training(x_mat, dpp, args)
 
