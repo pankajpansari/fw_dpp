@@ -48,7 +48,7 @@ class DPP(object):
         self.itr_total += 1 
         if key not in self.cache:
             self.itr_new += 1 
-            val = getDet(self.L, sample)
+            val = torch.log(getDet(self.L, sample))
             self.cache[key] = val
         else:
             self.itr_cache += 1 

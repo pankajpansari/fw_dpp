@@ -255,23 +255,23 @@ if  __name__ == '__main__':
  
     x_mat = torch.rand(args.batch_size, args.N)
 
-    start_t = time.time()
-    
-    best_kl = torch.Tensor([1e3])
-    x = x_mat[0]
-    for t in range(10000):
-        q = torch.rand(args.N)
-        kl_loss = kl_loss_exact_forward(x, q, dpp)
-        if kl_loss < best_kl:
-            print "best_kl: ", best_kl.item()
-            best_kl = kl_loss
-            best_q = q
-
-    torch.save(best_q, 'optimal_q_mc.pt')
-
-
-    print "total time = ", (time.time() - start_t)
-    sys.exit()
+#    start_t = time.time()
+#    
+#    best_kl = torch.Tensor([1e3])
+#    x = x_mat[0]
+#    for t in range(10000):
+#        q = torch.rand(args.N)
+#        kl_loss = kl_loss_exact_forward(x, q, dpp)
+#        if kl_loss < best_kl:
+#            print "best_kl: ", best_kl.item()
+#            best_kl = kl_loss
+#            best_q = q
+#
+#    torch.save(best_q, 'optimal_q_mc.pt')
+#
+#
+#    print "total time = ", (time.time() - start_t)
+#    sys.exit()
 
     training(x_mat, dpp, args)
 
