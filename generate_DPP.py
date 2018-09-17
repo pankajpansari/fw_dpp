@@ -2,6 +2,44 @@ import sys
 import numpy as np
 import h5py
 
+def gradually_hard_DPPs():
+
+    n_dpp = 5
+    N = 10 #number of items
+
+    #Quality parameters
+    mu_q = 3 
+    sigma_q = 1
+
+    #Feature parameters
+    D = N #number of features
+    mu_phi = 0
+    sigma_phi = 2 
+    
+    params_string = '_'.join(str(x) for x in [N, mu_q, D, mu_phi, sigma_phi, n_dpp])
+    hf = h5py.File('/home/pankaj/Sampling/data/input/dpp/data/gradual_dpp_' + params_string + '.h5', 'w')
+    hf.create_group('quality')
+    hf.create_group('feature')
+    for p in range(n_dpp):
+        q = np.random.uniform(mu_q, sigma_q, N)
+        
+        phi = sigma_phi * np.random.randn(N, N)
+        
+        #normalise feature vectors
+        phi_n = np.zeros((D, N))
+        for t in range(N):
+            norm_constant = np.sqrt(phi[:, t].dot(phi[:, t]))
+            if norm_constant != 0:
+                phi_n[:, t] = phi[:, t]/norm_constant
+            else:
+                print "Cannot divide by 0!"
+
+        hf['quality'].create_dataset('dpp_' + str(p), data = q)
+        hf['feature'].create_dataset('dpp_' + str(p), data = phi_n)
+         
+    hf.close()
+
+
 def clustered_DPP():
     #Quality same for all items
     #Feature vectors such that the items are grouped in k categories
@@ -103,5 +141,7 @@ def param_search():
     sigma_phi = [0.1, 0.5, 1, 2]
 
 if __name__ == '__main__':
-    clustered_DPP()
+    gradually_hard_DPPs()
+
+#    clustered_DPP()
 #    random_DPP()

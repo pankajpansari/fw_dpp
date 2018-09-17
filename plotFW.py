@@ -471,8 +471,8 @@ def main():
      plt.plot(val, linestyle='-') 
      plt.xlabel('Iterations')
      plt.ylabel('Kl-based objective')
-     plt.savefig(save_filename)
-#     plt.show()
+#     plt.savefig(save_filename)
+     plt.show()
     
 
 if __name__ == '__main__':

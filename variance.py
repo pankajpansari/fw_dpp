@@ -32,9 +32,10 @@ def getImportanceRelax(x, x_prp, nsamples, dpp):
     w = getImportanceWeights(samples_list, x, x_prp)
 
     for i in range(nsamples):
-        current_sum = current_sum + (w[i]/w.sum())*dpp(samples_list[i])
+#        current_sum = current_sum + (w[i]/w.sum())*dpp(samples_list[i])
+        current_sum = current_sum + w[i]*dpp(samples_list[i])
 
-    return current_sum
+    return current_sum/nsamples
 
 def variance_estimate(input, proposal, dpp, nsamples):
     variance_val = []
@@ -45,7 +46,7 @@ def variance_estimate(input, proposal, dpp, nsamples):
 
     for instance in range(batch_size):
         fval = []
-        for t in range(50): #50 seems to work well in practice - smaller (say 20) leads to less consistency of variance
+        for t in range(1000): #50 seems to work well in practice - smaller (say 20) leads to less consistency of variance
             x = input[instance].unsqueeze(0)
             y = proposal[instance].unsqueeze(0)
             temp = getImportanceRelax(x, y, nsamples, dpp)
