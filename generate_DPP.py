@@ -14,17 +14,19 @@ def gradually_hard_DPPs():
     #Feature parameters
     D = N #number of features
     mu_phi = 0
-    sigma_phi = 2 
+    sigma_phi = [0, 1, 2, 3] 
     
-    params_string = '_'.join(str(x) for x in [N, mu_q, D, mu_phi, sigma_phi, n_dpp])
+    params_string = '_'.join(str(x) for x in [N, mu_q, D, mu_phi, n_dpp])
     hf = h5py.File('/home/pankaj/Sampling/data/input/dpp/data/gradual_dpp_' + params_string + '.h5', 'w')
     hf.create_group('quality')
     hf.create_group('feature')
-    for p in range(n_dpp):
-        q = np.random.uniform(mu_q, sigma_q, N)
+
+    for p in range(len(sigma_phi)):
+        q = mu_q + sigma_q*np.random.randn(N)
         
-        phi = sigma_phi * np.random.randn(N, N)
-        
+        phi = sigma_phi[p] * np.random.randn(N, N)
+        np.fill_diagonal(phi, 1)
+
         #normalise feature vectors
         phi_n = np.zeros((D, N))
         for t in range(N):
@@ -48,7 +50,7 @@ def clustered_DPP():
     N = 10 #number of items
 
     #Quality parameters
-    mu_q = 2 
+    mu_q = 3 
     sigma_q = 1
 
     #Feature parameters
@@ -142,6 +144,5 @@ def param_search():
 
 if __name__ == '__main__':
     gradually_hard_DPPs()
-
 #    clustered_DPP()
 #    random_DPP()

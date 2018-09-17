@@ -55,9 +55,10 @@ def getImportanceRelax(x_good, x, nsamples, dpp_obj, herd, a):
     w = getImportanceWeights(samples_list, x, x_prp)
 
     for i in range(nsamples):
-        current_sum = current_sum + (w[i]/w.sum())*dpp_obj(samples_list[i].numpy())
+#        current_sum = current_sum + (w[i]/w.sum())*dpp(samples_list[i])
+        current_sum = current_sum + w[i]*dpp_obj(samples_list[i])
 
-    return current_sum
+    return current_sum/nsamples
 
 def getCondGrad(grad, k):
 
@@ -93,10 +94,12 @@ def getImportanceGrad(x_good, x, nsamples, dpp_obj, herd, a):
         m = torch.zeros(sample.size()) 
         for p in np.arange(dpp_obj.N):
             m[p] = 1
-            grad[p] = grad[p] + (w[t]/w.sum())*(dpp_obj(np.logical_or(sample.numpy(), m.numpy())) - dpp_obj(np.logical_and(sample.numpy(), np.logical_not(m.numpy()))))
+            a = torch.Tensor(np.logical_or(sample.numpy(), m.numpy()).astype(int))
+            b = torch.Tensor(np.logical_and(sample.numpy(), np.logical_not(m.numpy())).astype(int))
+            grad[p] = grad[p] + w[t]*(dpp_obj(a) - dpp_obj(b))
             m[p] = 0
 
-    return grad
+    return grad/nsamples
 
 def prune(dpp_obj, I):
     #We go through items in I in the order 1...N, and keep items with +ve marginal gain
@@ -107,7 +110,7 @@ def prune(dpp_obj, I):
     for item in sorted_I_items:
         include_sample = current_set.clone()
         include_sample[item] = 1
-        marginal_gain = dpp_obj(include_sample.numpy()) - dpp_obj(current_set.numpy()) 
+        marginal_gain = dpp_obj(include_sample) - dpp_obj(current_set) 
         if marginal_gain > 0:
             current_set[item] = 1
 #            print "Including item ", item, "    gain = ", marginal_gain
@@ -117,11 +120,9 @@ def prune(dpp_obj, I):
     print "Items in pruned set = ", len(temp)
     return current_set
 
-def runImportanceFrankWolfe(L, nsamples, k, log_file, opt_file, iterates_file, num_fw_iter, if_herd, x_good, a):
+def runImportanceFrankWolfe(dpp_obj, nsamples, k, log_file, opt_file, iterates_file, num_fw_iter, if_herd, x_good, a):
 
-    N = L.shape[0] 
-
-    dpp_obj = DPP(L)
+    N = dpp_obj.N 
 
 #    x = Variable(torch.Tensor([1.0*k/N]*N))
     x = Variable(torch.Tensor([1e-3]*N))
@@ -184,11 +185,11 @@ def runImportanceFrankWolfe(L, nsamples, k, log_file, opt_file, iterates_file, n
     #Since DPPs are non-monotone, we need to prune the independent set
     S = prune(dpp_obj, I)
 
-    opt_submod_val = dpp_obj(S.numpy()) 
+    opt_submod_val = dpp_obj(S) 
 
     print "Items selected: " + ' '.join([str(x) for x in range(N) if S[x] == 1])
     print "Rounded discrete solution with pruning= ", opt_submod_val.item()
-    print "(Rounded discrete solution without pruning = ", dpp_obj(I.numpy()).item()
+    print "(Rounded discrete solution without pruning = ", dpp_obj(I).item()
 
     #Save optimum solution and value
     f = open(opt_file, 'w')

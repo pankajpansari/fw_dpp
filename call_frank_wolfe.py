@@ -9,9 +9,10 @@ from read_files import read_dpp
 import time
 import subprocess
 import argparse
+from dpp_objective import DPP 
 np.random.seed(1234)
 
-def call_FrankWolfe(N, L, dpp_id, k, nsamples_mlr, num_fw_iter,  if_herd, if_sfo_gt, a, torch_seed):
+def call_FrankWolfe(N, dpp, dpp_id, k, nsamples_mlr, num_fw_iter,  if_herd, if_sfo_gt, a, torch_seed):
 
     dirw = './workspace'
 
@@ -31,7 +32,7 @@ def call_FrankWolfe(N, L, dpp_id, k, nsamples_mlr, num_fw_iter,  if_herd, if_sfo
     x_good = torch.Tensor([0]*N)
     a = 0
 
-    x_opt = runImportanceFrankWolfe(L, nsamples_mlr, k, log_file, opt_file, iterates_file, num_fw_iter, if_herd, x_good, a)
+    x_opt = runImportanceFrankWolfe(dpp, nsamples_mlr, k, log_file, opt_file, iterates_file, num_fw_iter, if_herd, x_good, a)
 
 def main():
 
@@ -65,9 +66,11 @@ def main():
 
     dpp_file = "/home/pankaj/Sampling/data/input/dpp/data/" + args.dpp_file
 
-    L = read_dpp(dpp_file, N, '/dpp_' + str(dpp_id)) 
+    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_10_2_20_2_1_5_2.h5', 10, 'dpp_2') 
+#    (qualities, features) = read_dpp(dpp_file, N, '/dpp_' + str(dpp_id)) 
+    dpp = DPP(qualities, features)
 
-    call_FrankWolfe(N, L, dpp_id, k, nsamples_mlr, num_fw_iter, if_herd, if_sfo_gt, a, torch_seed)
+    call_FrankWolfe(N, dpp, dpp_id, k, nsamples_mlr, num_fw_iter, if_herd, if_sfo_gt, a, torch_seed)
 
     print "Compeleted in " + str(time.clock() - tic) + 's'
 

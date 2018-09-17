@@ -413,15 +413,21 @@ def linePlotSave(x, filename):
      plt.savefig(filename)
      plt.clf()
 
-def plotRelaxationVariance(filename, save_filename):
-    a = np.loadtxt(filename)
-    plt.plot(a[:, 0], a[:, 1], 'r-', label = 'original proposal') 
-    plt.plot(a[:, 0], a[:, 2], 'b-', label = 'learned proposal') 
-    plt.axes().set_xticks(a[:, 0])
+def plotRelaxationVariance(save_filename):
+
+    file_list = ['dpp_0_5_0.001_0.001_0.9_0.9_0_800_1_1_100_train_variance.txt', 'dpp_1_5_0.001_0.001_0.9_0.9_0_1500_1_1_100_train_variance.txt', 'dpp_2_5_0.001_0.001_0.9_0.9_0_800_1_1_100_train_variance.txt', 'dpp_3_5_0.001_0.001_0.9_0.9_0_1500_1_1_100_train_variance.txt']
+
+    for i in range(4): 
+        filename = 'workspace/' + file_list[i] 
+        a = np.loadtxt(filename)
+        var_ratio = a[:, 2]/a[:, 1]
+        plt.plot(a[:, 0], var_ratio, label = 'sigma = ' + str(i)) 
+        plt.axes().set_xticks(a[:, 0])
     plt.xlabel('#samples for estimating relaxation')
-    plt.ylabel('Variance')
-    plt.title('Variance reduction (if any) of relaxation by importance sampling')
+    plt.ylabel('Learned proposal var/Nominal proposal var')
+    plt.title('Variance of relaxation by importance sampling')
     plt.legend()
+    save_filename = sys.argv[1]
     plt.savefig(save_filename)
 
 def plot_x():
@@ -443,40 +449,42 @@ def plot_x():
 
 # Gather our code in a main() function
 def main():
-     filename = sys.argv[1]
-     f = open(filename, 'r')
+     file_list = ['dpp_0_5_0.001_0.001_0.9_0.9_0_800_1_1_100_training_log.txt', 'dpp_1_5_0.001_0.001_0.9_0.9_0_1500_1_1_100_training_log.txt', 'dpp_2_5_0.001_0.001_0.9_0.9_0_800_1_1_100_training_log.txt', 'dpp_3_5_0.001_0.001_0.9_0.9_0_1500_1_1_100_training_log.txt']
+     for i in range(4): 
+         filename = 'workspace/' + file_list[i] 
+         f = open(filename, 'r')
 
-#     val = []
-#     temp = -1
-#     for line in f:
-# 	a = line.split(' ')
-#        if int(a[0]) > temp:
-#            temp = int(a[0])
-#            val.append(float(a[1]))
-#        else: 
-#            break
+#         val = []
+#         temp = -1
+#         for line in f:
+#           a = line.split(' ')
+#            if int(a[0]) > temp:
+#                temp = int(a[0])
+#                val.append(float(a[1]))
+#            else: 
+#                break
 #
-#     plt.plot(val, linestyle='-') 
-#     plt.xlabel('Iterations')
-#     plt.ylabel('L2 reconstruction objective')
-#     plt.savefig(save_filename)
-#     plt.clf()
+#         plt.plot(val, linestyle='-') 
+#         plt.xlabel('Iterations')
+#         plt.ylabel('L2 reconstruction objective')
+#         plt.savefig(save_filename)
+#         plt.clf()
 
-     val = []
-     save_filename = sys.argv[2]
-     for line in f:
- 	a = line.split(' ')
-        val.append(float(a[1]))
+         val = []
+         for line in f:
+            a = line.split(' ')
+            val.append(float(a[1]))
 
-     plt.plot(val, linestyle='-') 
+         plt.plot(val, linestyle='-', label = 'sigma = ' + str(i)) 
      plt.xlabel('Iterations')
      plt.ylabel('Kl-based objective')
-#     plt.savefig(save_filename)
-     plt.show()
+     plt.legend()
+     save_filename = sys.argv[1]
+     plt.savefig(save_filename)
     
 
 if __name__ == '__main__':
 #    plot_x()
-#    plotRelaxationVariance(sys.argv[1], sys.argv[2])
-    main()
+    plotRelaxationVariance(sys.argv[1])
+#   main()
 

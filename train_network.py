@@ -248,14 +248,8 @@ def training(x_mat, dpp, args):
 
     output = net(x_mat, adjacency, node_feat, edge_feat).detach()
 
-    for nsample in nsamples_list:
-        no_proposal_var = round(variance_estimate(x_mat, x_mat, dpp, nsample), 3)
-        net_proposal_var = round(variance_estimate(x_mat, output, dpp, nsample), 3)
-        param_list = [nsample, no_proposal_var, net_proposal_var]
-        text_list = ['#samples', 'original variance', 'variance with learned proposals']
-        print_list(text_list, param_list)
-
-#    testing(net, x_mat, dpp, file_prefix + '_train_variance.txt')
+    print x_mat, output
+    testing(net, x_mat, dpp, file_prefix + '_train_variance.txt')
 
 
 def testing(net, x_mat, dpp, filename):
@@ -301,7 +295,7 @@ if  __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Training network using estimated forward KL-based loss for DPPs')
     parser.add_argument('torch_seed', nargs = '?', help='Random seed for torch', type=int, default = 123)
-    parser.add_argument('dpp_id', nargs = '?', help='id of DPP', type=int, default = 1)
+    parser.add_argument('dpp_id', nargs = '?', help='id of DPP', type=int, default = 0)
     parser.add_argument('N', nargs = '?', help='# of items in DPP', type=int, default = 10)
     parser.add_argument('k', nargs = '?', help='cardinality constraint', type=int, default = 5)
     parser.add_argument('recon_lr', nargs = '?', help='Learning rate for reconstruction phase', type=float, default = 1e-3)
@@ -309,7 +303,7 @@ if  __name__ == '__main__':
     parser.add_argument('recon_mom', nargs = '?', help='Momentum for reconstruction phase', type=float, default = 0.9)
     parser.add_argument('kl_mom', nargs = '?', help='Momentum for KL-based loss phase', type=float, default = 0.9)
     parser.add_argument('recon_epochs', nargs = '?', help='Number of epochs for reconstruction phase', type=int, default = 0)
-    parser.add_argument('kl_epochs', nargs = '?', help='Number of epochs for kl-loss phase', type=int, default = 500)
+    parser.add_argument('kl_epochs', nargs = '?', help='Number of epochs for kl-loss phase', type=int, default = 1500)
 
     parser.add_argument('batch_size', nargs = '?', help='Batch size', type=int, default = 1)
     parser.add_argument('minibatch_size', nargs = '?', help='Minibatch size', type=int, default = 1)
@@ -319,13 +313,12 @@ if  __name__ == '__main__':
     torch.manual_seed(args.torch_seed)
 
 #    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_100_2_200_2_1_5_10.h5', args.N, 'dpp_' + str(args.dpp_id)) 
-    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/gradual_dpp_10_3_10_0_2_5.h5', 10, 'dpp_2') 
-    
+    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/gradual_dpp_10_3_10_0_2_5.h5', 10, 'dpp_' + str(args.dpp_id))
+
     dpp = DPP(qualities, features)
  
     x_mat = torch.rand(args.batch_size, args.N)
 
-#    sys.exit()
 #    start_t = time.time()
 #    
 #    best_kl = torch.Tensor([1e3])
