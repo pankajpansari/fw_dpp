@@ -182,7 +182,7 @@ def training(x_mat, dpp, args):
     #log file
     args_list = [args.dpp_id, args.k, args.recon_lr, args.kl_lr, args.recon_mom, args.kl_mom, args.recon_epochs, args.kl_epochs, args.batch_size, args.minibatch_size, args.num_samples_mc]
     file_prefix = wdir + '/dpp_' + '_'.join([str(x) for x in args_list])
-    f = open(file_prefix + '_training_log.txt', 'w')
+    f = open(file_prefix + '_stochastic_training_log.txt', 'w')
 
 #    optimizer = optim.SGD(net.parameters(), lr=args.recon_lr, momentum = args.recon_mom)
     optimizer = optim.Adam(net.parameters(), lr=args.recon_lr)
@@ -217,9 +217,11 @@ def training(x_mat, dpp, args):
         ind = torch.randperm(batch_size)[0:args.minibatch_size]
         minibatch = x_mat[ind]
         output = net(minibatch, adjacency, node_feat, edge_feat) 
-#        loss = kl_loss_forward(minibatch, output, dpp, args.num_samples_mc)
-        loss = kl_loss_exact_forward(minibatch, output, dpp)
-        avg_loss = loss.detach().sum()/args.minibatch_size
+        loss = kl_loss_forward(minibatch, output, dpp, args.num_samples_mc)
+#        exact_loss = kl_loss_exact_forward(minibatch, output, dpp)
+#        loss = kl_loss_exact_forward(minibatch, output, dpp)
+#        exact_loss = loss
+#        avg_loss = .detach().sum()/args.minibatch_size
         loss.backward()
         optimizer2.step()    # Does the update
 
@@ -229,11 +231,13 @@ def training(x_mat, dpp, args):
 #        else:
 #            temp = avg_loss.item()
 
-        to_print =  [epoch, round(avg_loss.item(), 3), round(time.time() - start1, 1)]
+        to_print =  [epoch, round(loss.item(), 3), round(time.time() - start1, 1)]
 #        if epoch% 20 == 0:
 #            print "Epoch: ", to_print[0], "       accurate loss (kl) = ", to_print[1] 
 #        else:
 #            print "Epoch: ", to_print[0], "       loss (kl) = ", to_print[1] 
+#
+#        print "Epoch: ", to_print[0], "       loss (kl) = ", to_print[1]
 
         print "Epoch: ", to_print[0], "       loss (kl) = ", to_print[1]
 
@@ -295,8 +299,9 @@ if  __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Training network using estimated forward KL-based loss for DPPs')
     parser.add_argument('torch_seed', nargs = '?', help='Random seed for torch', type=int, default = 123)
-    parser.add_argument('dpp_id', nargs = '?', help='id of DPP', type=int, default = 0)
+    parser.add_argument('num_samples_mc', nargs = '?', help='#samples to use for loss estimation', type=int, default = 100)
     parser.add_argument('N', nargs = '?', help='# of items in DPP', type=int, default = 10)
+    parser.add_argument('dpp_id', nargs = '?', help='id of DPP', type=int, default = 0)
     parser.add_argument('k', nargs = '?', help='cardinality constraint', type=int, default = 5)
     parser.add_argument('recon_lr', nargs = '?', help='Learning rate for reconstruction phase', type=float, default = 1e-3)
     parser.add_argument('kl_lr', nargs = '?', help='Learning rate for KL-based loss minimisation', type=float, default = 1e-3)
@@ -307,7 +312,6 @@ if  __name__ == '__main__':
 
     parser.add_argument('batch_size', nargs = '?', help='Batch size', type=int, default = 1)
     parser.add_argument('minibatch_size', nargs = '?', help='Minibatch size', type=int, default = 1)
-    parser.add_argument('num_samples_mc', nargs = '?', help='#samples to use for loss estimation', type=int, default = 100)
     args = parser.parse_args()
 
     torch.manual_seed(args.torch_seed)

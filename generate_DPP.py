@@ -1,4 +1,5 @@
 import sys
+import matplotlib.pyplot as plt
 import numpy as np
 import h5py
 
@@ -36,6 +37,9 @@ def gradually_hard_DPPs():
             else:
                 print "Cannot divide by 0!"
 
+        S = phi_n.dot(phi_n)
+        plt.imshow(S, cmap = 'gray', vmin = -1, vmax = 1)
+        plt.savefig('visualise_' + str(p) + '.png') 
         hf['quality'].create_dataset('dpp_' + str(p), data = q)
         hf['feature'].create_dataset('dpp_' + str(p), data = phi_n)
          

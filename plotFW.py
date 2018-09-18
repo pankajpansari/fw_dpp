@@ -447,12 +447,34 @@ def plot_x():
     plt.imshow(y, cmap = 'gray', vmin = 0, vmax = 1)
     plt.savefig('compare_x.png')
 
-# Gather our code in a main() function
-def main():
-     file_list = ['dpp_0_5_0.001_0.001_0.9_0.9_0_800_1_1_100_training_log.txt', 'dpp_1_5_0.001_0.001_0.9_0.9_0_1500_1_1_100_training_log.txt', 'dpp_2_5_0.001_0.001_0.9_0.9_0_800_1_1_100_training_log.txt', 'dpp_3_5_0.001_0.001_0.9_0.9_0_1500_1_1_100_training_log.txt']
-     for i in range(4): 
+def plot_kl_multiple():
+
+#     file_list = ['dpp_0_5_0.001_0.001_0.9_0.9_0_1500_1_1_100_exact_training_log.txt', 'dpp_0_5_0.001_0.001_0.9_0.9_0_1500_1_1_500_training_log.txt', 'dpp_0_5_0.001_0.001_0.9_0.9_0_1500_1_1_100_training_log.txt', 'dpp_0_5_0.001_0.001_0.9_0.9_0_1500_1_1_10_training_log.txt']
+     file_list = ['dpp_0_5_0.001_0.001_0.9_0.9_0_1500_1_1_500_stochastic_training_log.txt', 'dpp_0_5_0.001_0.001_0.9_0.9_0_1500_1_1_100_stochastic_training_log.txt', 'dpp_0_5_0.001_0.001_0.9_0.9_0_1500_1_1_10_stochastic_training_log.txt']
+     label_list = ['500 samples', '100 samples', '10 samples']
+     for i in range(len(file_list)): 
+
          filename = 'workspace/' + file_list[i] 
          f = open(filename, 'r')
+
+         val = []
+         for line in f:
+            a = line.split(' ')
+            val.append(float(a[1]))
+
+         plt.plot(val, linestyle='-', label = label_list[i]) 
+     plt.xlabel('Iterations')
+     plt.ylabel('Kl-based objective')
+     plt.legend()
+     save_filename = sys.argv[1]
+     plt.savefig(save_filename)
+ 
+
+# Gather our code in a main() function
+def plot_kl_single():
+
+     filename = 'workspace/' + sys.argv[1] 
+     f = open(filename, 'r')
 
 #         val = []
 #         temp = -1
@@ -470,21 +492,23 @@ def main():
 #         plt.savefig(save_filename)
 #         plt.clf()
 
-         val = []
-         for line in f:
-            a = line.split(' ')
-            val.append(float(a[1]))
+     val = []
+     for line in f:
+        a = line.split(' ')
+        val.append(float(a[1]))
 
-         plt.plot(val, linestyle='-', label = 'sigma = ' + str(i)) 
+     plt.plot(val, linestyle='-') 
      plt.xlabel('Iterations')
      plt.ylabel('Kl-based objective')
-     plt.legend()
-     save_filename = sys.argv[1]
+#     plt.show()
+     save_filename = sys.argv[2]
      plt.savefig(save_filename)
     
 
 if __name__ == '__main__':
 #    plot_x()
-    plotRelaxationVariance(sys.argv[1])
+#    plotRelaxationVariance(sys.argv[1])
 #   main()
+#    plot_kl_multiple()
+    plot_kl_single()
 
