@@ -48,7 +48,7 @@ class DPP(object):
         self.itr_total += 1 
         if key not in self.cache:
             self.itr_new += 1 
-            val = (getDet(self.L, sample))
+            val = 10*torch.log(getDet(self.L, sample))
             self.cache[key] = val
         else:
             self.itr_cache += 1 
@@ -61,7 +61,6 @@ def getDet(L, sample):
 
     N = L.shape[0]
     this_set = torch.LongTensor([i for i in range(N) if sample[i] == 1] )
-
     if this_set.nelement() == 0:
         return torch.Tensor([1])
 

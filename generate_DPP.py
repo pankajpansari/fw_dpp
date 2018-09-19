@@ -3,6 +3,26 @@ import matplotlib.pyplot as plt
 import numpy as np
 import h5py
 
+def gillenwater_DPPs():
+   
+    N = 14
+    S = np.random.randn(N, N)
+    w_m_list = [1, 0.1, 0]
+    u = np.random.randn(N)
+    t = 0
+
+    hf = h5py.File('/home/pankaj/Sampling/data/input/dpp/data/gillenwater_dpp.h5', 'w')
+    hf.create_group('quality')
+    hf.create_group('feature')
+
+    for w_m in w_m_list:
+        quality = np.exp(w_m*u/2)
+        hf['quality'].create_dataset('dpp_' + str(t), data = quality)
+        hf['feature'].create_dataset('dpp_' + str(t), data = S)
+    
+        t = t + 1
+    hf.close()
+
 def gradually_hard_DPPs():
 
     n_dpp = 5
@@ -147,6 +167,7 @@ def param_search():
     sigma_phi = [0.1, 0.5, 1, 2]
 
 if __name__ == '__main__':
-    gradually_hard_DPPs()
+    gillenwater_DPPs()
+#    gradually_hard_DPPs()
 #    clustered_DPP()
 #    random_DPP()

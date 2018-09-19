@@ -51,7 +51,7 @@ def get_fw_optimum(filename, N):
 
     return x_good
 
-def read_dpp(dpp_file, N, dpp_id):
+def read_dpp(dpp_file, dpp_id):
     with h5py.File(dpp_file, 'r') as hf:
         quality = torch.Tensor(hf['quality'].get(dpp_id))
         feature = torch.Tensor(hf['feature'].get(dpp_id))

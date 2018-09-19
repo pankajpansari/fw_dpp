@@ -475,34 +475,20 @@ def plot_kl_single():
 
      filename = 'workspace/' + sys.argv[1] 
      f = open(filename, 'r')
-
-#         val = []
-#         temp = -1
-#         for line in f:
-#           a = line.split(' ')
-#            if int(a[0]) > temp:
-#                temp = int(a[0])
-#                val.append(float(a[1]))
-#            else: 
-#                break
-#
-#         plt.plot(val, linestyle='-') 
-#         plt.xlabel('Iterations')
-#         plt.ylabel('L2 reconstruction objective')
-#         plt.savefig(save_filename)
-#         plt.clf()
-
      val = []
+     count = 0
      for line in f:
         a = line.split(' ')
-        val.append(float(a[1]))
-
+#        val.append(float(a[1]))
+        if count % 20 == 0: 
+            val.append(float(a[1]))
+        count += 1
      plt.plot(val, linestyle='-') 
      plt.xlabel('Iterations')
      plt.ylabel('Kl-based objective')
-#     plt.show()
-     save_filename = sys.argv[2]
-     plt.savefig(save_filename)
+     plt.show()
+#     save_filename = sys.argv[2]
+#     plt.savefig(save_filename)
     
 
 if __name__ == '__main__':

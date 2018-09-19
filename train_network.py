@@ -17,6 +17,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torch.nn.init as init
 import itertools
+from tabulate import tabulate
 import argparse
 from dpp_objective import DPP 
 from variance import variance_estimate, getImportanceRelax
@@ -87,6 +88,8 @@ def kl_loss_exact_forward(x_mat, q_mat, dpp):
 
     kl_mat = []
 
+    epsilon = 1e-5
+
     for p in range(batch_size):
 
         x = x_mat[p]
@@ -109,12 +112,33 @@ def kl_loss_exact_forward(x_mat, q_mat, dpp):
             temp = q*sample + (1-q)*(1 - sample)
             log_prob_q = torch.log(temp).sum()
 
-            log_term = torch.log(f_val) + log_prob_x - log_prob_q
+            log_term = torch.log(f_val + epsilon) + log_prob_x - log_prob_q
 
             C = torch.add(C, f_val*prob_x)
             kl_val = torch.add(kl_val, prob_x*f_val*log_term)
+
         kl_mat.append(kl_val/C - torch.log(C))
     return sum(kl_mat)
+
+def getConstant(x, q, dpp):
+
+    power_set = map(list, itertools.product([0, 1], repeat= x_mat.shape[1]))
+
+    C = torch.Tensor([0])
+
+    for binary_vec in power_set:
+
+        sample = Variable(torch.from_numpy(np.array(binary_vec)).float())
+
+        f_val = torch.abs(dpp(sample))
+
+        temp = x*sample + (1-x)*(1 - sample)
+        prob_x = torch.prod(temp)
+
+        C = torch.add(C, f_val*prob_x)
+
+    return C 
+
 
 #Esimated KL loss
 def kl_loss_forward(x_mat, q_mat, dpp, nsamples):
@@ -182,77 +206,66 @@ def training(x_mat, dpp, args):
     #log file
     args_list = [args.dpp_id, args.k, args.recon_lr, args.kl_lr, args.recon_mom, args.kl_mom, args.recon_epochs, args.kl_epochs, args.batch_size, args.minibatch_size, args.num_samples_mc]
     file_prefix = wdir + '/dpp_' + '_'.join([str(x) for x in args_list])
-    f = open(file_prefix + '_stochastic_training_log.txt', 'w')
 
-#    optimizer = optim.SGD(net.parameters(), lr=args.recon_lr, momentum = args.recon_mom)
-    optimizer = optim.Adam(net.parameters(), lr=args.recon_lr)
+    f = open(file_prefix + '_stochastic_training_log.txt', 'w')
 
     start1 = time.time()
 
-    for epoch in range(args.recon_epochs):
+    net.zero_grad()
+
+    optimizer = optim.Adam(net.parameters(), lr=args.kl_lr)
+
+    for epoch in range(args.kl_epochs):
         optimizer.zero_grad()   # zero the gradient buffers
         ind = torch.randperm(batch_size)[0:args.minibatch_size]
         minibatch = x_mat[ind]
         output = net(minibatch, adjacency, node_feat, edge_feat) 
-        loss = reconstruction_loss(minibatch, output)
-        avg_loss = loss.detach().sum()/args.minibatch_size
-        to_print =  [epoch, round(avg_loss.item(), 3), round(time.time() - start1, 1)]
-        print "Epoch: ", to_print[0], "       loss (reconstruction) = ", to_print[1] 
-        f.write(' '.join([str(x) for x in to_print]) + '\n')
+        loss = kl_loss_forward(minibatch, output, dpp, args.num_samples_mc)
+#        loss = kl_loss_exact_forward(minibatch, output, dpp)
         loss.backward()
         optimizer.step()    # Does the update
 
-    torch.save(net.state_dict(), file_prefix + '_recon_net.dat')
+        if epoch % 20 == 0:
+            accurate_loss = kl_loss_forward(minibatch, output, dpp, 1000)
+            avg_loss = loss/args.minibatch_size
+            text_list = ['Epoch', 'Accurate loss']
+        else:
+            avg_loss = loss/args.minibatch_size
+            text_list = ['Epoch', 'Loss']
 
-#    temp = torch.load(file_prefix + '_recon_net.dat')
-#    net.load_state_dict(temp)
+        val_list =  [epoch, round(avg_loss.item(), 3), round(time.time() - start1, 1)]
 
-    net.zero_grad()
+        print_list(text_list, val_list)
 
-    optimizer2 = optim.Adam(net.parameters(), lr=args.kl_lr)
-#    optimizer2 = optim.SGD(net.parameters(), lr=args.kl_lr, momentum = args.kl_mom)
-
-    for epoch in range(args.kl_epochs):
-        optimizer2.zero_grad()   # zero the gradient buffers
-        ind = torch.randperm(batch_size)[0:args.minibatch_size]
-        minibatch = x_mat[ind]
-        output = net(minibatch, adjacency, node_feat, edge_feat) 
-        loss = kl_loss_forward(minibatch, output, dpp, args.num_samples_mc)
-#        exact_loss = kl_loss_exact_forward(minibatch, output, dpp)
-#        loss = kl_loss_exact_forward(minibatch, output, dpp)
-#        exact_loss = loss
-#        avg_loss = .detach().sum()/args.minibatch_size
-        loss.backward()
-        optimizer2.step()    # Does the update
-
-#        if epoch % 20 == 0:
-#            accurate_loss = kl_loss_forward(minibatch, output, dpp, 1000)
-#            temp = accurate_loss.detach().sum().item()/args.minibatch_size
-#        else:
-#            temp = avg_loss.item()
-
-        to_print =  [epoch, round(loss.item(), 3), round(time.time() - start1, 1)]
-#        if epoch% 20 == 0:
-#            print "Epoch: ", to_print[0], "       accurate loss (kl) = ", to_print[1] 
-#        else:
-#            print "Epoch: ", to_print[0], "       loss (kl) = ", to_print[1] 
-#
-#        print "Epoch: ", to_print[0], "       loss (kl) = ", to_print[1]
-
-        print "Epoch: ", to_print[0], "       loss (kl) = ", to_print[1]
-
-        f.write(' '.join([str(x) for x in to_print]) + '\n')
+        write_to_file(f, val_list)
 
     f.close()
+
     torch.save(net.state_dict(), file_prefix + '_net.dat')
+
 #    temp = torch.load(file_prefix + '_net.dat')
 #    net.load_state_dict(temp)
 
-    nsamples_list = [1, 5, 10, 20, 50, 100]
+    output = net(x_mat, adjacency, node_feat, edge_feat) 
+    x = x_mat[0]
+    q = output[0]
+    C = getConstant(x, q, dpp)
+    table = []
+    for t in range(10):
+        sample = torch.bernoulli(torch.Tensor([0.5]*args.N))
+        f_val = torch.abs(dpp(sample))
 
-    output = net(x_mat, adjacency, node_feat, edge_feat).detach()
+        temp = x*sample + (1-x)*(1 - sample)
+        prob_x = torch.prod(temp)
 
-    print x_mat, output
+        temp = q*sample + (1-q)*(1 - sample)
+        prob_q = torch.prod(temp)
+
+        table.append(['Sample ' + str(t),
+            '{:0.2e}'.format((f_val*prob_x/C).item()),
+            '{:0.2e}'.format((prob_q).item())])
+        print (f_val*prob_x/C).item(), (prob_q).item()
+    print tabulate(table, headers = ['Sample', 'Optimal probability', 'Learned probability'], tablefmt = 'latex') 
     testing(net, x_mat, dpp, file_prefix + '_train_variance.txt')
 
 
@@ -299,8 +312,8 @@ if  __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Training network using estimated forward KL-based loss for DPPs')
     parser.add_argument('torch_seed', nargs = '?', help='Random seed for torch', type=int, default = 123)
-    parser.add_argument('num_samples_mc', nargs = '?', help='#samples to use for loss estimation', type=int, default = 100)
-    parser.add_argument('N', nargs = '?', help='# of items in DPP', type=int, default = 10)
+    parser.add_argument('num_samples_mc', nargs = '?', help='#samples to use for loss estimation', type=int, default = 1000)
+    parser.add_argument('N', nargs = '?', help='# of items in DPP', type=int, default = 14)
     parser.add_argument('dpp_id', nargs = '?', help='id of DPP', type=int, default = 0)
     parser.add_argument('k', nargs = '?', help='cardinality constraint', type=int, default = 5)
     parser.add_argument('recon_lr', nargs = '?', help='Learning rate for reconstruction phase', type=float, default = 1e-3)
@@ -313,33 +326,15 @@ if  __name__ == '__main__':
     parser.add_argument('batch_size', nargs = '?', help='Batch size', type=int, default = 1)
     parser.add_argument('minibatch_size', nargs = '?', help='Minibatch size', type=int, default = 1)
     args = parser.parse_args()
-
     torch.manual_seed(args.torch_seed)
 
-#    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_100_2_200_2_1_5_10.h5', args.N, 'dpp_' + str(args.dpp_id)) 
-    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/gradual_dpp_10_3_10_0_2_5.h5', 10, 'dpp_' + str(args.dpp_id))
+    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/gillenwater_dpp.h5', 'dpp_' + str(args.dpp_id))
+#    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/gradual_dpp_10_3_10_0_2_5.h5', 10, 'dpp_' + str(args.dpp_id))
+#    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_10_2_20_2_1_5_2.h5', 10, 'dpp_' + str(args.dpp_id))
 
     dpp = DPP(qualities, features)
  
     x_mat = torch.rand(args.batch_size, args.N)
-
-#    start_t = time.time()
-#    
-#    best_kl = torch.Tensor([1e3])
-#    x = x_mat[0]
-#    for t in range(10000):
-#        q = torch.rand(args.N)
-#        kl_loss = kl_loss_exact_forward(x, q, dpp)
-#        if kl_loss < best_kl:
-#            print "best_kl: ", best_kl.item()
-#            best_kl = kl_loss
-#            best_q = q
-#
-#    torch.save(best_q, 'optimal_q_mc.pt')
-#
-#
-#    print "total time = ", (time.time() - start_t)
-#    sys.exit()
 
     training(x_mat, dpp, args)
 
