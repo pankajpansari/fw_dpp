@@ -111,6 +111,7 @@ def runFrankWolfe(dpp, args, log_file, opt_file, iterates_file, if_herd = 0):
     bufsize = 0
 
     f = open(log_file, 'w', bufsize)
+    f2 = open(iterates_file, 'w', bufsize)
 
     tic = time.clock()
 
@@ -126,6 +127,10 @@ def runFrankWolfe(dpp, args, log_file, opt_file, iterates_file, if_herd = 0):
     print_list(text_list, val_list)
 
     f.write(str(toc - tic) + " " + str(mlr.item()) + " " + str(dpp.itr_total) + '/' + str(dpp.itr_new) + '/' + str(dpp.itr_cache) + "\n") 
+
+    for x_t in x:
+        f2.write(str(x_t.item()) + '\n')
+    f2.write('\n')
 
     for iter_num in np.arange(1, args.num_fw_iter):
 
@@ -148,6 +153,10 @@ def runFrankWolfe(dpp, args, log_file, opt_file, iterates_file, if_herd = 0):
 #        print "Iteration: ", iter_num, "    mlr = ", mlr.item(), "  time = ", (toc - tic),  "   Total/New/Cache: ", dpp.itr_total , dpp.itr_new , dpp.itr_cache
 
         f.write(str(toc - tic) + " " + str(mlr.item()) + " " + str(dpp.itr_total) + '/' + str(dpp.itr_new) + '/' + str(dpp.itr_cache) + "\n") 
+
+        for x_t in x:
+            f2.write(str(x_t.item()) + '\n')
+        f2.write('\n')
 
     f.close()
 
