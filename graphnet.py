@@ -74,11 +74,10 @@ class GraphConv(nn.Module):
         return mu
 
 class GraphScorer(nn.Module):
-    def __init__(self, p, w_std, k):
+    def __init__(self, p, w_std):
         super(GraphScorer, self).__init__()
         self.p = p
         self.w_std = w_std
-        self.k = k
 
         self.t5_1 = nn.Parameter(torch.Tensor(1, self.p))
         self.t5_2 = nn.Parameter(torch.Tensor(1, self.p))
@@ -108,20 +107,15 @@ class GraphScorer(nn.Module):
 
         return output_distribution
 
-#        factors = self.k/output_distribution.sum(dim = 1)
-#        project_output = torch.mul(output_distribution, factors.expand_as(output_distribution.t()).t())
-#        project_output[project_output > 1] = 1 - 1e-4
-#        return project_output 
-
 class MyNet(nn.Module):
-    def __init__(self, k):
+    def __init__(self):
         super(MyNet, self).__init__()
         
         n_layer = 3
         p = 28 
         w_scale = 1e-2
         self.conv = GraphConv(n_layer, p, w_scale)
-        self.scorer = GraphScorer(p, w_scale, k)
+        self.scorer = GraphScorer(p, w_scale)
 
     def forward(self, x, adjacency, node_feat, edge_feat):
         mu = self.conv(x, adjacency, node_feat, edge_feat)

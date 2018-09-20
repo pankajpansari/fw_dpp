@@ -5,13 +5,13 @@ import h5py
 
 def gillenwater_DPPs():
    
-    N = 14
+    N = 20 
     S = np.random.randn(N, N)
     w_m_list = [1, 0.1, 0]
     u = np.random.randn(N)
     t = 0
 
-    hf = h5py.File('/home/pankaj/Sampling/data/input/dpp/data/gillenwater_dpp.h5', 'w')
+    hf = h5py.File('/home/pankaj/Sampling/data/input/dpp/data/gillenwater_dpp_N_' + str(N) + '.h5', 'w')
     hf.create_group('quality')
     hf.create_group('feature')
 

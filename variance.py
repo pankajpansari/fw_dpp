@@ -46,7 +46,7 @@ def variance_estimate(input, proposal, dpp, nsamples):
 
     for instance in range(batch_size):
         fval = []
-        for t in range(1000): #50 seems to work well in practice - smaller (say 20) leads to less consistency of variance
+        for t in range(10000): #50 seems to work well in practice - smaller (say 20) leads to less consistency of variance
             x = input[instance].unsqueeze(0)
             y = proposal[instance].unsqueeze(0)
             temp = getImportanceRelax(x, y, nsamples, dpp)
