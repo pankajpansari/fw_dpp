@@ -206,68 +206,63 @@ def training(x_mat, dpp, args):
     args_list = [args.torch_seed, args.dpp_id, args.N, args.kl_lr, args.kl_mom, args.kl_epochs, args.batch_size, args.minibatch_size, args.num_samples_mc]
     file_prefix = wdir + '/dpp_' + '_'.join([str(x) for x in args_list])
 
-    f = open(file_prefix + '_stochastic_training_log.txt', 'w')
+    f = open(file_prefix + '_stochastic_training_log.txt', 'w', 0)
 
     start1 = time.time()
 
+    optimizer = optim.RMSprop(net.parameters(), lr=1e-4, momentum = 0.9, eps = 1e-6)
+
     net.zero_grad()
 
-    optimizer = optim.Adam(net.parameters(), lr=args.kl_lr)
-    optimizer = optim.RMSprop(net.parameters(), lr=args.kl_lr, momentum = args.kl_mom, eps = 1e-4)
-
-#    for epoch in range(2):
-    for epoch in range(args.kl_epochs):
+    for epoch in range(2000):
         optimizer.zero_grad()   # zero the gradient buffers
         ind = torch.randperm(batch_size)[0:args.minibatch_size]
         minibatch = x_mat[ind]
         output = net(minibatch, adjacency, node_feat, edge_feat) 
-        loss = kl_loss_forward(minibatch, output, dpp, args.num_samples_mc)
-#        loss = kl_loss_exact_forward(minibatch, output, dpp)
+        loss = reconstruction_loss(minibatch, output)
+        avg_loss = loss.detach().sum()/args.minibatch_size
+        to_print =  [epoch, round(avg_loss.item(), 3), round(time.time() - start1, 1)]
+        text_list = ['Epoch', 'Reconstruction loss']
+        print_list(text_list, to_print)
+        f.write(' '.join([str(x) for x in to_print]) + '\n')
         loss.backward()
         optimizer.step()    # Does the update
 
-        if epoch % 20 == 0:
-            accurate_loss = kl_loss_forward(minibatch, output, dpp, 100)
-            avg_loss = loss/args.minibatch_size
-            text_list = ['Epoch', 'Accurate loss']
-        else:
-            avg_loss = loss/args.minibatch_size
-            text_list = ['Epoch', 'Loss']
-
-        val_list =  [epoch, round(avg_loss.item(), 3), round(time.time() - start1, 1)]
-
-        print_list(text_list, val_list)
-
-        write_to_file(f, val_list)
+#    optimizer = optim.RMSprop(net.parameters(), lr=args.kl_lr, momentum = args.kl_mom, eps = 1e-4)
+#
+#    net.zero_grad()
+#
+#    for epoch in range(args.kl_epochs):
+#        optimizer.zero_grad()   # zero the gradient buffers
+#        ind = torch.randperm(batch_size)[0:args.minibatch_size]
+#        minibatch = x_mat[ind]
+#        output = net(minibatch, adjacency, node_feat, edge_feat) 
+#        loss = kl_loss_forward(minibatch, output, dpp, args.num_samples_mc)
+##        loss = kl_loss_exact_forward(minibatch, output, dpp)
+#        loss.backward()
+#        optimizer.step()    # Does the update
+#
+#        if epoch % 20 == 0:
+#            full_output = net(x_mat, adjacency, node_feat, edge_feat) 
+#            accurate_loss = kl_loss_forward(x_mat, full_output, dpp, 1000)
+#            avg_loss = loss/args.minibatch_size
+#            text_list = ['Epoch', 'Accurate loss']
+#        else:
+#            avg_loss = loss/args.minibatch_size
+#            text_list = ['Epoch', 'Loss']
+#
+#        val_list =  [epoch, round(avg_loss.item(), 3), round(time.time() - start1, 1)]
+#
+#        print_list(text_list, val_list)
+#
+#        write_to_file(f, val_list)
 
     f.close()
 
-    torch.save(net.state_dict(), file_prefix + '_net.dat')
-
-#    temp = torch.load(file_prefix + '_net.dat')
-#    net.load_state_dict(temp)
+#    torch.save(net.state_dict(), file_prefix + '_net.dat')
 
 #    output = net(x_mat, adjacency, node_feat, edge_feat) 
-#    x = x_mat[0]
-#    q = output[0]
-#    C = getConstant(x, q, dpp)
-#    table = []
-#
-#    for t in range(10):
-#        sample = torch.bernoulli(torch.Tensor([0.5]*args.N))
-#        f_val = torch.abs(dpp(sample))
-#
-#        temp = x*sample + (1-x)*(1 - sample)
-#        prob_x = torch.prod(temp)
-#
-#        temp = q*sample + (1-q)*(1 - sample)
-#        prob_q = torch.prod(temp)
-#
-#        table.append(['Sample ' + str(t),
-#            '{:0.2e}'.format((f_val*prob_x/C).item()),
-#            '{:0.2e}'.format((prob_q).item())])
-#        print (f_val*prob_x/C).item(), (prob_q).item()
-#    print tabulate(table, headers = ['Sample', 'Optimal probability', 'Learned probability'], tablefmt = 'latex') 
+#    print x_mat, output
 
     testing(net, x_mat, dpp, file_prefix + '_train_variance.txt')
 
@@ -293,7 +288,7 @@ def testing(net, x_mat, dpp, filename):
     idx = torch.arange(0, dpp.N, out = torch.LongTensor())
     adjacency[idx, idx] = 0
 
-    nsamples_list = [1, 5]
+    nsamples_list = [1]
 
     x_copy = x_mat.detach()
     f = open(filename, 'w')
@@ -327,35 +322,36 @@ if  __name__ == '__main__':
     args = parser.parse_args()
     torch.manual_seed(args.torch_seed)
 
-    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_100_2_200_1_2_5_20.h5', 'dpp_' + str(args.dpp_id))
+    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_20_20_4_3_1_4_1.h5', 'dpp_' + str(args.dpp_id))
 
     dpp = DPP(qualities, features)
  
-#    x_mat = torch.rand(args.batch_size, args.N)
-    x_mat = torch.Tensor(np.reshape(np.loadtxt('/home/pankaj/Sampling/code/fw_dpp/workspace/dpp_123_0_100_20_100_100_fw_simple_iterates.txt'), (args.batch_size, args.N)))
-
-#    nsamples_list = [1, 5, 10]
+    y_mat = torch.Tensor(np.reshape(np.loadtxt('/home/pankaj/Sampling/code/fw_dpp/workspace/dpp_123_0_20_10_1_100_fw_simple_iterates.txt'), (100, args.N)))
+    x_mat = y_mat[0:args.batch_size, :]
+#    nsamples_list = [1]
 #
 #    x_copy = x_mat.detach()
 #
 #    for nsample in nsamples_list:
-#        no_proposal_var = round(variance_estimate(x_mat, x_mat, dpp, nsample), 3)
-#        param_list = [nsample, no_proposal_var]
-#        text_list = ['#samples', 'original variance']
-#        print_list(text_list, param_list)
-
-
+#        for t in range(5):
+#            no_proposal_var = round(variance_estimate(x_mat, x_mat, dpp, nsample), 3)
+#            param_list = [nsample, no_proposal_var]
+#            text_list = ['#samples', 'original variance']
+#            print_list(text_list, param_list)
+#
 #    sys.exit()
+
     training(x_mat, dpp, args)
 
     sys.exit()
-    x_val_mat = torch.rand(args.batch_size, args.N)
+#    x_val_mat = torch.rand(args.batch_size, args.N)
 
     net = MyNet()
     args_list = [args.torch_seed, args.dpp_id, args.N, args.kl_lr, args.kl_mom, args.kl_epochs, args.batch_size, args.minibatch_size, args.num_samples_mc]
 #    args_list = [args.torch_seed, args.dpp_id, args.N, args.recon_lr, args.kl_lr, args.recon_mom, args.kl_mom, args.recon_epochs, args.kl_epochs, args.batch_size, args.minibatch_size, args.num_samples_mc]
     file_prefix = wdir + '/dpp_' + '_'.join([str(x) for x in args_list])
-    temp = torch.load(file_prefix + '_net.dat')
+#    temp = torch.load(file_prefix + '_net.dat')
+    temp = torch.load('workspace/dpp_125_0_20_0.0001_0.9_2000_10_10_1000_net.dat')
     net.load_state_dict(temp)
-    testing(net, x_val_mat, dpp, file_prefix + '_test_variance.txt')
+    testing(net, x_mat, dpp, file_prefix + '_test_variance.txt')
 
