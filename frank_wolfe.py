@@ -40,7 +40,8 @@ def getRelax(dpp, x, nsamples, herd = 0):
         samples_list = Variable(torch.bernoulli(x.repeat(nsamples, 1)))
 
     for sample in samples_list:
-        current_sum = current_sum + dpp(sample)
+        val = dpp(sample)
+        current_sum = current_sum +  val
 
     return current_sum/nsamples
 
@@ -99,15 +100,15 @@ def prune(dpp, I):
         marginal_gain = dpp(include_sample) - dpp(current_set) 
         if marginal_gain > 0:
             current_set[item] = 1
-    temp = [x for x in range(1, dpp.N) if current_set[x] == 1]
+    temp = [x for x in range(dpp.N) if current_set[x] == 1]
     print "Items in pruned set = ", len(temp)
     return current_set
 
 
 def runFrankWolfe(dpp, args, log_file, opt_file, iterates_file, if_herd = 0):
 
-    x = Variable(torch.Tensor([1.0*args.k/args.N]*args.N))
-    
+    x = torch.Tensor([1.0*args.k/args.N]*args.N)
+
     bufsize = 0
 
     f = open(log_file, 'w', bufsize)
@@ -165,6 +166,8 @@ def runFrankWolfe(dpp, args, log_file, opt_file, iterates_file, if_herd = 0):
 
     #Since DPPs are non-monotone, we need to prune the independent set
     pruned_x = prune(dpp, rounded_x)
+
+    print pruned_x
 
     opt_val = dpp(pruned_x) 
 

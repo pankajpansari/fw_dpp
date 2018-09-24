@@ -31,6 +31,9 @@ class DPP(object):
         for t in range(self.N):
             B[:, t] = qualities[t]*features[:, t]
         L = torch.mm(B.t(), B)
+
+        w, v = np.linalg.eig(L.numpy())
+        assert (w >= -1e-10).all(), "Negative eigenvalue" #comparison with -1e-10 because of numerical issues in computing the eigenvalues
         return L
 
     def cache_reset(self):
@@ -46,9 +49,14 @@ class DPP(object):
 
         key = sample.numpy().tobytes()
         self.itr_total += 1 
+        eps = 1e-4
         if key not in self.cache:
             self.itr_new += 1 
-            val = 10*torch.log(getDet(self.L, sample))
+            val = torch.log(getDet(self.L, sample) + eps)
+            if torch.isnan(val):
+                print "submodular function is nan"
+                print val, getDet(self.L, sample)
+                sys.exit()
             self.cache[key] = val
         else:
             self.itr_cache += 1 
@@ -66,7 +74,8 @@ def getDet(L, sample):
 
     subRowsMatrix = L.index_select(0, this_set)
     subMat = subRowsMatrix.index_select(1, this_set)
-    return torch.potrf(subMat).diag().prod()
+    return torch.Tensor([np.linalg.det(subMat.numpy())])
+#    return torch.potrf(subMat).diag().prod()
  
 def main():
     N = 100 

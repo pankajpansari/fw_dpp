@@ -227,7 +227,7 @@ def training(x_mat, dpp, args):
         optimizer.step()    # Does the update
 
         if epoch % 20 == 0:
-            accurate_loss = kl_loss_forward(minibatch, output, dpp, 10000)
+            accurate_loss = kl_loss_forward(minibatch, output, dpp, 100)
             avg_loss = loss/args.minibatch_size
             text_list = ['Epoch', 'Accurate loss']
         else:
@@ -293,7 +293,7 @@ def testing(net, x_mat, dpp, filename):
     idx = torch.arange(0, dpp.N, out = torch.LongTensor())
     adjacency[idx, idx] = 0
 
-    nsamples_list = [1, 5, 10]
+    nsamples_list = [1, 5]
 
     x_copy = x_mat.detach()
     f = open(filename, 'w')
@@ -327,12 +327,25 @@ if  __name__ == '__main__':
     args = parser.parse_args()
     torch.manual_seed(args.torch_seed)
 
-    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/gillenwater_dpp_N_20.h5', 'dpp_' + str(args.dpp_id))
+    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/clustered_dpp_100_2_200_1_2_5_20.h5', 'dpp_' + str(args.dpp_id))
 
     dpp = DPP(qualities, features)
  
-    x_mat = torch.rand(args.batch_size, args.N)
+#    x_mat = torch.rand(args.batch_size, args.N)
+    x_mat = torch.Tensor(np.reshape(np.loadtxt('/home/pankaj/Sampling/code/fw_dpp/workspace/dpp_123_0_100_20_100_100_fw_simple_iterates.txt'), (args.batch_size, args.N)))
 
+#    nsamples_list = [1, 5, 10]
+#
+#    x_copy = x_mat.detach()
+#
+#    for nsample in nsamples_list:
+#        no_proposal_var = round(variance_estimate(x_mat, x_mat, dpp, nsample), 3)
+#        param_list = [nsample, no_proposal_var]
+#        text_list = ['#samples', 'original variance']
+#        print_list(text_list, param_list)
+
+
+#    sys.exit()
     training(x_mat, dpp, args)
 
     sys.exit()
