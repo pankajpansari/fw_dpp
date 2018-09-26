@@ -74,15 +74,18 @@ class GraphConv(nn.Module):
         return mu
 
 class GraphScorer(nn.Module):
-    def __init__(self, p, w_std):
+    def __init__(self, p, w_std, rank):
         super(GraphScorer, self).__init__()
         self.p = p
         self.w_std = w_std
+        self.rank = rank
 
         self.t5_1 = nn.Parameter(torch.Tensor(1, self.p))
         self.t5_2 = nn.Parameter(torch.Tensor(1, self.p))
         self.t6 = nn.Parameter(torch.Tensor(self.p, self.p))
         self.t7 = nn.Parameter(torch.Tensor(self.p, self.p))
+#        self.t8_1 = nn.Parameter(torch.Tensor(self.rank, self.p))
+#        self.t8_2 = nn.Parameter(torch.Tensor(self.rank, self.p))
 
         self.reset()
 
@@ -91,6 +94,8 @@ class GraphScorer(nn.Module):
         nn.init.normal_(self.t5_2, mean=0, std=self.w_std)
         nn.init.normal_(self.t6, mean=0, std=self.w_std)
         nn.init.normal_(self.t7, mean=0, std=self.w_std)
+#        nn.init.normal_(self.t8_1, mean=0, std=self.w_std)
+#        nn.init.normal_(self.t8_2, mean=0, std=self.w_std)
 
     def forward(self, mu):
         accum = mu.sum(-1, keepdim=True)
@@ -103,9 +108,15 @@ class GraphScorer(nn.Module):
 
         output = g_score.expand_as(per_node_score) + per_node_score
 
-        output_distribution = torch.sigmoid(output)
+        output_marg = torch.sigmoid(output)
 
-        return output_distribution
+
+        g_score_cov = self.t8_1.matmul(term1).squeeze(1)
+        per_node_score_cov = self.t8_2.matmul(term2).squeeze(1)
+
+        output_cov = g_score_cov.expand_as(per_node_score_cov) + per_node_score_cov
+
+        return [output_marg, output_cov]
 
 class MyNet(nn.Module):
     def __init__(self):
@@ -114,8 +125,9 @@ class MyNet(nn.Module):
         n_layer = 3
         p = 28 
         w_scale = 1e-2
+        rank = 10
         self.conv = GraphConv(n_layer, p, w_scale)
-        self.scorer = GraphScorer(p, w_scale)
+        self.scorer = GraphScorer(p, w_scale, rank)
 
     def forward(self, x, adjacency, node_feat, edge_feat):
         mu = self.conv(x, adjacency, node_feat, edge_feat)
