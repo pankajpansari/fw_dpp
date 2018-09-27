@@ -84,8 +84,8 @@ class GraphScorer(nn.Module):
         self.t5_2 = nn.Parameter(torch.Tensor(1, self.p))
         self.t6 = nn.Parameter(torch.Tensor(self.p, self.p))
         self.t7 = nn.Parameter(torch.Tensor(self.p, self.p))
-#        self.t8_1 = nn.Parameter(torch.Tensor(self.rank, self.p))
-#        self.t8_2 = nn.Parameter(torch.Tensor(self.rank, self.p))
+        self.t8_1 = nn.Parameter(torch.Tensor(self.rank, self.p))
+        self.t8_2 = nn.Parameter(torch.Tensor(self.rank, self.p))
 
         self.reset()
 
@@ -94,15 +94,15 @@ class GraphScorer(nn.Module):
         nn.init.normal_(self.t5_2, mean=0, std=self.w_std)
         nn.init.normal_(self.t6, mean=0, std=self.w_std)
         nn.init.normal_(self.t7, mean=0, std=self.w_std)
-#        nn.init.normal_(self.t8_1, mean=0, std=self.w_std)
-#        nn.init.normal_(self.t8_2, mean=0, std=self.w_std)
+        nn.init.normal_(self.t8_1, mean=0, std=self.w_std)
+        nn.init.normal_(self.t8_2, mean=0, std=self.w_std)
 
     def forward(self, mu):
         accum = mu.sum(-1, keepdim=True)
 
         term1 = F.relu(self.t6.matmul(accum))
         term2 = F.relu(self.t7.matmul(mu))
-
+        print mu.size()
         g_score = self.t5_1.matmul(term1).squeeze(1)
         per_node_score = self.t5_2.matmul(term2).squeeze(1)
 
@@ -110,12 +110,13 @@ class GraphScorer(nn.Module):
 
         output_marg = torch.sigmoid(output)
 
-
         g_score_cov = self.t8_1.matmul(term1).squeeze(1)
         per_node_score_cov = self.t8_2.matmul(term2).squeeze(1)
 
-        output_cov = g_score_cov.expand_as(per_node_score_cov) + per_node_score_cov
-
+#        output_cov = g_score_cov.expand_as(per_node_score_cov) + per_node_score_cov
+        output_cov = mu[:, 0:5, :]
+#        print output_cov.size()
+#        sys.exit()
         return [output_marg, output_cov]
 
 class MyNet(nn.Module):
@@ -125,7 +126,7 @@ class MyNet(nn.Module):
         n_layer = 3
         p = 28 
         w_scale = 1e-2
-        rank = 10
+        rank = 5 
         self.conv = GraphConv(n_layer, p, w_scale)
         self.scorer = GraphScorer(p, w_scale, rank)
 

@@ -25,8 +25,7 @@ def getLogProb(sample, pVec):
 def getImportanceWeights(samples_list, nominal, proposal):
     logp_nom = getLogProb(samples_list, nominal)
     logp_prp = getLogProb(samples_list, proposal)
-#    return torch.exp(logp_nom - logp_prp)
-    return getProb(samples_list, nominal)/getProb(samples_list, proposal)
+    return torch.exp(logp_nom - logp_prp)
 
 def getImportanceRelax(x, x_prp, nsamples, dpp): 
 
@@ -40,23 +39,24 @@ def getImportanceRelax(x, x_prp, nsamples, dpp):
 
     return current_sum/nsamples
 
-def variance_estimate(input, proposal, dpp, nsamples):
+def variance_estimate(x_mat, proposal, dpp, nsamples):
     variance_val = []
     mean_val = []
-    batch_size = int(input.size()[0])
+    batch_size = int(x_mat.size()[0])
     
 #    N = int(np.sqrt(int(L_mat[0].shape[0])))
-    N = int(input.shape[1])
+    N = int(x_mat.shape[1])
 
     for instance in range(batch_size):
         fval = []
         for t in range(1000): #50 seems to work well in practice - smaller (say 20) leads to less consistency of variance
-            x = input[instance].unsqueeze(0)
+            x = x_mat[instance].unsqueeze(0)
             y = proposal[instance].unsqueeze(0)
             temp = getImportanceRelax(x, y, nsamples, dpp)
             fval.append(temp)
         variance_val.append(np.std(fval))
     return np.mean(variance_val)
+
 
 
 if  __name__ == '__main__':

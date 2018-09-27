@@ -21,6 +21,7 @@ from tabulate import tabulate
 import argparse
 from dpp_objective import DPP 
 from variance import variance_estimate, getImportanceRelax
+from variance_copula import variance_estimate_copula
 
 wdir = './workspace/'
 
@@ -33,39 +34,87 @@ def print_list(text_list, val_list):
         print a, ': ', str(b), '    ',
     print
 
+def get_copula_prob(u_mat, cov):
+    N = u_mat.size()[1] 
+    Sigma = torch.mm(cov.t(), cov)
+    normal = torch.distributions.normal.Normal(torch.tensor([0.0]), torch.tensor([1.0]))
+    z = normal.icdf(u_mat)
+    cov_det = torch.det(Sigma)
+    term1 = 1/(torch.sqrt(cov_det) + 1e-4)
+    inv_mat = torch.inverse(Sigma)
+    term3 = inv_mat - torch.eye(N)
+
+    temp = torch.matmul(term3, z.t())
+    term2 = torch.mm(z, temp).diag()
+    
+    nsamples = u_mat.size()[0] 
+
+    if torch.isnan(term2).any():
+        print 'd'
+        for i in range(nsamples):
+            if torch.isnan(term2[i]):
+                print term2[i], z[i], term3, u_mat[i]
+        sys.exit()
+#
+    return term1*torch.exp(-term2/2)
+
+#Reconstruction loss
+def reconstruction_loss(p, q):
+    #Reconstruction loss - L2 difference between input (p) and proposal (q)
+    batch_size = p.size()[0]
+    temp = p - q
+    l2_norms = torch.norm(temp, 2, 1)
+    return ((l2_norms**2).sum())
+
 #Esimated KL loss
-def kl_loss_forward_marg(x_mat, marg_mat, dpp, nsamples):
+def kl_loss_forward(x_mat, marg_mat, cov_mat, dpp, nsamples):
 
     batch_size = x_mat.size()[0]
     kl_value = torch.Tensor([0])
+    N = dpp.N 
 
     kl_value = []
+    eps = 1e-4
     for p in range(batch_size):
 
         x = x_mat[p]
-        q = q_mat[p]
+        marg = marg_mat[p]
+        cov = cov_mat[p]
 
         f_val = torch.FloatTensor([0]*nsamples)
-        N = dpp.N 
 
-        samples = torch.bernoulli(x.repeat(nsamples, 1))
+        u_mat = torch.empty(nsamples, N).uniform_(0 + 1e-2, 1 - 1e-2)
+
+        samples = (u_mat < x).float()
+
+        copula_prob = get_copula_prob(u_mat, cov) 
 
         count = 0
-
         for t in samples:
             f_val[count] = torch.abs(dpp(t))
             count += 1
 
-        temp = x*samples + (1-x)*(1 - samples)
-        prob_x = torch.prod(temp, 1)
+        temp = marg*samples + (1-marg)*(1 - samples)
 
-        temp = q*samples + (1-q)*(1 - samples)
-#        prob_q = torch.prod(temp, 1)
-        log_prob_q = torch.log(temp).sum(1)
+        log_prob_q = torch.log(temp).sum(1) + torch.log(copula_prob)
+        if torch.isnan(temp).any():
+            print 'b'
+            print marg, temp
+            sys.exit()
 
+        if torch.isnan(copula_prob).any():
+            print 'c'
+            for i in range(nsamples):
+                if torch.isnan(copula_prob[i]):
+                    print i
+
+            print copula_prob 
+            print copula_prob.size()
+            sys.exit()
+ 
         kl_value.append(torch.sum(-f_val*log_prob_q))
     
-    return sum(kl_value)/(nsamples)
+    return sum(kl_value)/nsamples
 
 #Training function 
 #Two phase training - reconstruction loss and then KL loss
@@ -118,8 +167,8 @@ def training(x_mat, dpp, args):
         optimizer.step()    # Does the update
 
         if epoch % 20 == 0:
-            full_output = net(x_mat, adjacency, node_feat, edge_feat) 
-            accurate_loss = kl_loss_forward(x_mat, full_output, dpp, 1000)
+            [marg, cov] = net(x_mat, adjacency, node_feat, edge_feat) 
+            accurate_loss = kl_loss_forward(x_mat, marg, cov, dpp, 1)
             avg_loss = loss/args.minibatch_size
             text_list = ['Epoch', 'Accurate loss']
         else:
@@ -136,8 +185,9 @@ def training(x_mat, dpp, args):
 
     torch.save(net.state_dict(), file_prefix + '_net.dat')
 
-    output = net(x_mat, adjacency, node_feat, edge_feat) 
-    print x_mat, output
+#    temp = torch.load(file_prefix + '_net.dat')
+#
+#    net.load_state_dict(temp)
 
     testing(net, x_mat, dpp, file_prefix + '_train_variance.txt')
 
@@ -163,16 +213,17 @@ def testing(net, x_mat, dpp, filename):
     idx = torch.arange(0, dpp.N, out = torch.LongTensor())
     adjacency[idx, idx] = 0
 
-    nsamples_list = [1]
+    nsamples_list = [1, 5]
 
-    x_copy = x_mat.detach()
     f = open(filename, 'w')
 
-    output = net(x_copy, adjacency, node_feat, edge_feat).detach()
-
+    [marg, cov] = net(x_mat, adjacency, node_feat, edge_feat)
+    
+    print x_mat, marg
+    print cov
     for nsample in nsamples_list:
         no_proposal_var = round(variance_estimate(x_mat, x_mat, dpp, nsample), 3)
-        net_proposal_var = round(variance_estimate(x_mat, output, dpp, nsample), 3)
+        net_proposal_var = round(variance_estimate_copula(x_mat, marg, cov, dpp, nsample), 3)
         param_list = [nsample, no_proposal_var, net_proposal_var]
         text_list = ['#samples', 'original variance', 'variance with learned proposals']
         write_to_file(f, param_list)
@@ -183,6 +234,7 @@ def testing(net, x_mat, dpp, filename):
 
 if  __name__ == '__main__':
 
+#    temp_fn()
     parser = argparse.ArgumentParser(description='Training network using estimated forward KL-based loss for DPPs')
     parser.add_argument('torch_seed', nargs = '?', help='Random seed for torch', type=int, default = 123)
     parser.add_argument('N', nargs = '?', help='# of items in DPP', type=int, default = 20)
@@ -203,7 +255,7 @@ if  __name__ == '__main__':
  
     y_mat = torch.Tensor(np.reshape(np.loadtxt('/home/pankaj/Sampling/code/fw_dpp/workspace/dpp_123_0_20_10_1_100_fw_simple_iterates.txt'), (100, args.N)))
     x_mat = y_mat[0:args.batch_size, :]
-
+    x_mat = torch.rand(args.batch_size, args.N)
     training(x_mat, dpp, args)
 
     sys.exit()
