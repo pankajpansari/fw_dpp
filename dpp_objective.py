@@ -6,7 +6,7 @@ import random
 import torch
 import os
 import math
-import itertools as it
+import itertools
 import matplotlib.pyplot as plt
 from torch.autograd import Variable
 from read_files import read_dpp
@@ -35,6 +35,18 @@ class DPP(object):
         w, v = np.linalg.eig(L.numpy())
         assert (w >= -1e-10).all(), "Negative eigenvalue" #comparison with -1e-10 because of numerical issues in computing the eigenvalues
         return L
+
+    def enumerate(self):
+        power_set = map(list, itertools.product([0, 1], repeat= self.N))
+
+        for binary_vec in power_set:
+
+            sample = torch.from_numpy(np.array(binary_vec)).float()
+
+            f_val = torch.abs(self(sample))
+
+            this_set = torch.LongTensor([i for i in range(self.N) if sample[i] == 1] )
+            print this_set.numpy(), ": ", f_val.item()
 
     def cache_reset(self):
         self.cache.reset()
@@ -74,17 +86,16 @@ def getDet(L, sample):
 
     subRowsMatrix = L.index_select(0, this_set)
     subMat = subRowsMatrix.index_select(1, this_set)
-    return torch.Tensor([np.linalg.det(subMat.numpy())])
-#    return torch.potrf(subMat).diag().prod()
+    return subMat.det()
  
-def main():
-    N = 100 
-    L = read_dpp("/home/pankaj/Sampling/data/input/dpp/data/dpp_100_1.5_0.5_200_0_0.1_5.h5", N, '/dpp_0')
-    sample = torch.rand(N) > 0.8
-
-    dpp_obj = DPP(L)
-
-    print dpp_obj(sample.numpy())
-
 if __name__ == '__main__':
-    main()
+    (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/dpp_10_10_1_5_3_0_0.1.h5', 'dpp_0')
+    dpp = DPP(qualities, features)
+    sample = torch.Tensor([0]*dpp.N)
+    sample[0] = 1
+    sample[2] = 1
+    this_set = torch.LongTensor([i for i in range(dpp.N) if sample[i] == 1])
+    subRowsMatrix = dpp.L.index_select(0, this_set)
+    subMat = subRowsMatrix.index_select(1, this_set)
+    print subMat
+    print dpp(sample)
