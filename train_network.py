@@ -22,6 +22,7 @@ import argparse
 from dpp_objective import DPP 
 from variance import variance_estimate, getImportanceRelax
 from variance_copula import variance_estimate_copula
+from bad_grad_viz import register_hooks
 
 wdir = './workspace/'
 
@@ -34,13 +35,15 @@ def print_list(text_list, val_list):
         print a, ': ', str(b), '    ',
     print
 
-def get_copula_prob(u_mat, cov):
+def get_copula_prob(u_mat, cov, w):
+
     N = u_mat.size()[1] 
-    Sigma = torch.mm(cov.t(), cov)
+    Sigma = torch.mm(cov.t(), cov) + w*torch.eye(N)
     normal = torch.distributions.normal.Normal(torch.tensor([0.0]), torch.tensor([1.0]))
     z = normal.icdf(u_mat)
-    cov_det = torch.det(Sigma)
-    term1 = 1/(torch.sqrt(cov_det) + 1e-4)
+    Sigma_det = torch.det(Sigma)
+
+    term1 = 1/(torch.sqrt(Sigma_det) + 1e-4)
     inv_mat = torch.inverse(Sigma)
     term3 = inv_mat - torch.eye(N)
 
@@ -50,24 +53,25 @@ def get_copula_prob(u_mat, cov):
     nsamples = u_mat.size()[0] 
 
     if torch.isnan(term2).any():
-        print 'd'
-        for i in range(nsamples):
-            if torch.isnan(term2[i]):
-                print term2[i], z[i], term3, u_mat[i]
+        print 'term2 has nan'
         sys.exit()
-#
     return term1*torch.exp(-term2/2)
 
-#Reconstruction loss
-def reconstruction_loss(p, q):
-    #Reconstruction loss - L2 difference between input (p) and proposal (q)
-    batch_size = p.size()[0]
-    temp = p - q
-    l2_norms = torch.norm(temp, 2, 1)
-    return ((l2_norms**2).sum())
+def temp_fn():
+    u_mat = torch.rand(2, 20)
+    cov = torch.rand((30, 20), requires_grad = True)
+    cov.grad = torch.zeros(cov.size())
+    prob = get_copula_prob(u_mat, cov, 0)
+    prob.sum().backward()
+    print cov.grad 
+#    get_dot = register_hooks(loss)
+#    dot = get_dot()
+#    dot.save('tmp.dot')
+    sys.exit() 
+
 
 #Esimated KL loss
-def kl_loss_forward(x_mat, marg_mat, cov_mat, dpp, nsamples):
+def kl_loss_forward(x_mat, marg_mat, cov_mat, dpp, nsamples, w):
 
     batch_size = x_mat.size()[0]
     kl_value = torch.Tensor([0])
@@ -75,6 +79,7 @@ def kl_loss_forward(x_mat, marg_mat, cov_mat, dpp, nsamples):
 
     kl_value = []
     eps = 1e-4
+
     for p in range(batch_size):
 
         x = x_mat[p]
@@ -87,7 +92,7 @@ def kl_loss_forward(x_mat, marg_mat, cov_mat, dpp, nsamples):
 
         samples = (u_mat < x).float()
 
-        copula_prob = get_copula_prob(u_mat, cov) 
+        copula_prob = get_copula_prob(u_mat, cov, w) 
 
         count = 0
         for t in samples:
@@ -98,18 +103,11 @@ def kl_loss_forward(x_mat, marg_mat, cov_mat, dpp, nsamples):
 
         log_prob_q = torch.log(temp).sum(1) + torch.log(copula_prob)
         if torch.isnan(temp).any():
-            print 'b'
-            print marg, temp
+            print 'temp has nan'
             sys.exit()
 
         if torch.isnan(copula_prob).any():
-            print 'c'
-            for i in range(nsamples):
-                if torch.isnan(copula_prob[i]):
-                    print i
-
-            print copula_prob 
-            print copula_prob.size()
+            print 'copula_prob has nan'
             sys.exit()
  
         kl_value.append(torch.sum(-f_val*log_prob_q))
@@ -127,7 +125,7 @@ def training(x_mat, dpp, args):
     batch_size = int(x_mat.shape[0]) 
 
     #Quality and feature vector as node_feat
-    node_feat = torch.unsqueeze(dpp.qualities, 0)
+    node_feat = 100*torch.unsqueeze(dpp.qualities, 0)
 
     #Concatenated feature vectors and qualities + dot product
     edge_feat = torch.zeros(1, dpp.N, dpp.N)
@@ -138,7 +136,7 @@ def training(x_mat, dpp, args):
             feat_j = dpp.features[:, j]
             quality_term = (dpp.qualities[i]*dpp.qualities[j])**2
             diversity_term = 1 - (feat_i.dot(feat_j))**2
-            edge_feat[0, i, j] = quality_term * diversity_term 
+            edge_feat[0, i, j] = 100*quality_term * diversity_term 
 
     #Fully-connected graph with diagonal elements 0
     adjacency = torch.ones(dpp.N, dpp.N) 
@@ -156,24 +154,23 @@ def training(x_mat, dpp, args):
     optimizer = optim.RMSprop(net.parameters(), lr=args.kl_lr, momentum = args.kl_mom, eps = 1e-4)
 
     net.zero_grad()
+#    for name, param in net.named_parameters():
+#        print name, param.grad
+#    sys.exit() 
 
+    w = 1
     for epoch in range(args.kl_epochs):
         optimizer.zero_grad()   # zero the gradient buffers
         ind = torch.randperm(batch_size)[0:args.minibatch_size]
         minibatch = x_mat[ind]
         [marg, cov] = net(minibatch, adjacency, node_feat, edge_feat) 
-        loss = kl_loss_forward(minibatch, marg, cov, dpp, args.num_samples_mc)
+        w = 0.99*w
+        loss = kl_loss_forward(minibatch, marg, cov, dpp, args.num_samples_mc, w)
         loss.backward()
         optimizer.step()    # Does the update
-
-        if epoch % 20 == 0:
-            [marg, cov] = net(x_mat, adjacency, node_feat, edge_feat) 
-            accurate_loss = kl_loss_forward(x_mat, marg, cov, dpp, 1)
-            avg_loss = loss/args.minibatch_size
-            text_list = ['Epoch', 'Accurate loss']
-        else:
-            avg_loss = loss/args.minibatch_size
-            text_list = ['Epoch', 'Loss']
+ 
+        avg_loss = loss/args.minibatch_size
+        text_list = ['Epoch', 'Loss']
 
         val_list =  [epoch, round(avg_loss.item(), 3), round(time.time() - start1, 1)]
 
@@ -182,7 +179,7 @@ def training(x_mat, dpp, args):
         write_to_file(f, val_list)
 
     f.close()
-
+    sys.exit()
     torch.save(net.state_dict(), file_prefix + '_net.dat')
 
 #    temp = torch.load(file_prefix + '_net.dat')
@@ -232,9 +229,9 @@ def testing(net, x_mat, dpp, filename):
     f.close()
 
 
+
 if  __name__ == '__main__':
 
-#    temp_fn()
     parser = argparse.ArgumentParser(description='Training network using estimated forward KL-based loss for DPPs')
     parser.add_argument('torch_seed', nargs = '?', help='Random seed for torch', type=int, default = 123)
     parser.add_argument('N', nargs = '?', help='# of items in DPP', type=int, default = 20)

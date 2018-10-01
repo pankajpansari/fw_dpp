@@ -28,9 +28,9 @@ class GraphConvLayer(nn.Module):
     def forward(self, node_feat, mu, adjacency, edge_feat):
         batch_size = node_feat.size(0)
         n_node = adjacency.size(1)
-        term1 = self.t1.matmul(node_feat)
+        term1 = 100*self.t1.matmul(node_feat)
         term2 = self.t2.matmul(mu).matmul(adjacency)
-        term3_1 = F.relu(self.t4.matmul(edge_feat.view(batch_size, self.num_edge_feat, n_node * n_node)))
+        term3_1 = 100*F.relu(self.t4.matmul(edge_feat.view(batch_size, self.num_edge_feat, n_node * n_node)))
         term3_1 = term3_1.view(batch_size, self.p, n_node, n_node).sum(-1)
         term3 = self.t3.matmul(term3_1)
         
@@ -102,31 +102,31 @@ class GraphScorer(nn.Module):
 
         term1 = F.relu(self.t6.matmul(accum))
         term2 = F.relu(self.t7.matmul(mu))
-        print mu.size()
-        g_score = self.t5_1.matmul(term1).squeeze(1)
-        per_node_score = self.t5_2.matmul(term2).squeeze(1)
+#        print 'mu = ', mu, mu.size()
+#        sys.exit()
+        g_score = self.t5_1.matmul(term1).squeeze(0)
+        per_node_score = self.t5_2.matmul(term2).squeeze(0)
 
         output = g_score.expand_as(per_node_score) + per_node_score
 
         output_marg = torch.sigmoid(output)
 
-        g_score_cov = self.t8_1.matmul(term1).squeeze(1)
-        per_node_score_cov = self.t8_2.matmul(term2).squeeze(1)
+        g_score_cov = self.t8_1.matmul(term1)
+        per_node_score_cov = self.t8_2.matmul(term2)
 
-#        output_cov = g_score_cov.expand_as(per_node_score_cov) + per_node_score_cov
-        output_cov = mu[:, 0:5, :]
-#        print output_cov.size()
-#        sys.exit()
+        output_cov = (g_score_cov.expand_as(per_node_score_cov) + per_node_score_cov)
+        print output_cov
+        sys.exit()
         return [output_marg, output_cov]
 
 class MyNet(nn.Module):
     def __init__(self):
         super(MyNet, self).__init__()
         
-        n_layer = 3
+        n_layer = 10
         p = 28 
         w_scale = 1e-2
-        rank = 5 
+        rank = 30 
         self.conv = GraphConv(n_layer, p, w_scale)
         self.scorer = GraphScorer(p, w_scale, rank)
 
