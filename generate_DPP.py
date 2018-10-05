@@ -5,6 +5,7 @@ import h5py
 
 def random_DPP():
 
+    np.random.seed(124)
     n_dpp = 1
     N = 10 #number of items
     D = N #number of features
@@ -46,6 +47,7 @@ def random_DPP():
          
         L = (B.T).dot(B)
 
+        print q
         hf['quality'].create_dataset('dpp_0', data = q)
         hf['feature'].create_dataset('dpp_0', data = phi_n)
 

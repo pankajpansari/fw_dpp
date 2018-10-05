@@ -26,6 +26,7 @@ def getImportanceWeights(samples_list, nominal, proposal):
     logp_nom = getLogProb(samples_list, nominal)
     logp_prp = getLogProb(samples_list, proposal)
 #    return torch.exp(logp_nom - logp_prp)
+
     return getProb(samples_list, nominal)/getProb(samples_list, proposal)
 
 def getImportanceRelax(x, x_prp, nsamples, dpp): 
@@ -37,7 +38,6 @@ def getImportanceRelax(x, x_prp, nsamples, dpp):
     for i in range(nsamples):
 #        current_sum = current_sum + (w[i]/w.sum())*dpp(samples_list[i])
         current_sum = current_sum + w[i]*dpp(samples_list[i].detach())
-
     return current_sum/nsamples
 
 def variance_estimate(input, proposal, dpp, nsamples):
@@ -56,6 +56,7 @@ def variance_estimate(input, proposal, dpp, nsamples):
             temp = getImportanceRelax(x, y, nsamples, dpp).item()
             fval.append(temp)
         variance_val.append(np.std(fval))
+        mean_val.append(np.mean(fval))
     return np.mean(variance_val)
 
 

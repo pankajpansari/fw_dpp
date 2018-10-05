@@ -41,9 +41,38 @@ def reconstruction_loss(p, q):
     l2_norms = torch.norm(temp, 2, 1)
     return ((l2_norms**2).sum())
 
+def kl_loss_exact_reverse(x, q, dpp):
+
+    kl_value = torch.Tensor([0])
+    power_set = map(list, itertools.product([0, 1], repeat=dpp.N))
+
+    #get normalisation constant
+    C = Variable(torch.Tensor([0]))
+
+    for binary_vec in power_set:
+
+        sample = Variable(torch.from_numpy(np.array(binary_vec)).float())
+
+        f_val = torch.abs(dpp(sample))
+
+        temp = x*sample + (1-x)*(1 - sample)
+        prob_x = torch.prod(temp)
+
+        temp = q*sample + (1-q)*(1 - sample)
+        prob_q = torch.prod(temp)
+
+        ratio = prob_q/(f_val*prob_x)
+
+        kl_value += prob_q*torch.log(ratio)
+
+        C = torch.add(C, f_val*prob_x)
+
+    exact_kl_value = kl_value + torch.log(C) 
+    return exact_kl_value 
+
 def kl_loss_exact_forward(x_mat, q_mat, dpp):
 
-    power_set = map(list, itertools.product([0, 1], repeat= x_mat.shape[1]))
+    power_set = map(list, itertools.product([0, 1], repeat= dpp.N))
 
     batch_size = x_mat.size()[0]
 
@@ -162,6 +191,7 @@ def training(x_mat, dpp, args):
         output = net(minibatch, adjacency, node_feat, edge_feat) 
 #        loss = kl_loss_forward(minibatch, output, dpp, args.num_samples_mc)
         loss = kl_loss_exact_forward(minibatch, output, dpp)
+#        loss = kl_loss_exact_reverse(minibatch[0], output[0], dpp)
         loss.backward()
         optimizer.step()    # Does the update
 
@@ -224,9 +254,33 @@ def testing(net, x_mat, dpp, filename):
 
     f.close()
 
+def brute_force_search(x, dpp):
+    x_1 = np.linspace(x[0, 0] - 0.1, x[0, 0] + 0.1, 10)
+    x_2 = np.linspace(x[0, 1] - 0.1, x[0, 1] + 0.1, 10)
+    x_3 = np.linspace(x[0, 2] - 0.1, x[0, 2] + 0.1, 10)
+    x_4 = np.linspace(x[0, 3] - 0.1, x[0, 3] + 0.1, 10)
+    all_q = map(list, itertools.product(x_1, x_2, x_3, x_4))
+
+    kl_min = 1e5
+    var_min = 1e5
+    q_min = [0]*dpp.N
+    print x
+    for q in all_q:
+        q = torch.Tensor(q).unsqueeze(0)
+        [q_var, q_mean] = variance_estimate(x, q, dpp, 1)
+#        kl_q = kl_loss_exact_reverse(x[0], q[0], dpp)
+#        if kl_q.item() < kl_min:
+#            kl_min = kl_q
+#            q_min = q
+#            print q, kl_min.item()
+        if q_var.item() < var_min:
+            var_min = q_var
+            q_min = q
+            print q, q_var.item(), q_mean.item()
+    print var_min, q_min
 
 if  __name__ == '__main__':
-
+    
     parser = argparse.ArgumentParser(description='Training network using estimated forward KL-based loss for DPPs')
     parser.add_argument('torch_seed', nargs = '?', help='Random seed for torch', type=int, default = 123)
     parser.add_argument('N', nargs = '?', help='# of items in DPP', type=int, default = 20)
@@ -244,9 +298,21 @@ if  __name__ == '__main__':
     (qualities, features) = read_dpp('/home/pankaj/Sampling/data/input/dpp/data/dpp_10_10_1_5_3_0_0.1.h5', 'dpp_' + str(args.dpp_id))
 
     dpp = DPP(qualities, features)
+    x_mat = torch.rand(1, args.N) 
+#    q_mat = torch.Tensor([[ 0.9800,  0.2000,  0.0100,  0.3111]])
+#    print x_mat, q_mat
+#    for t in range(10):
+#        [var, mean] = variance_estimate(x_mat, q_mat, dpp, 100)
+#        print var, mean
+#    sys.exit()
+#    loss = kl_loss_exact_forward(x_mat, q_mat, dpp)
+#    print loss
+#    loss = kl_loss_exact_reverse(x_mat, q_mat, dpp)
+#    print loss
+#    brute_force_search(x_mat, dpp)
+
 #    dpp.enumerate()
 #    sys.exit()
-    x_mat = torch.rand(1, args.N) 
 
     training(x_mat, dpp, args)
 
